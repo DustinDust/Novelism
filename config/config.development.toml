@@ -1,0 +1,16 @@
+[general]
+server = "0.0.0.0:8080"
+
+[logging]
+log_header = "${time_rfc3339_nano} [${prefix}][${short_file}][${line}]: ${level}\n"
+http_log_format = "${time_rfc3339_nano} - [${remote_ip}][${method}] ${uri} ${status} ${latency_human} (in: ${bytes_in}B, out: ${bytes_out}B) (Error: ${error})\n"
+
+[database]
+uri = "postgres://postgres:123123@localhost/novelism?sslmode=disable"
+max_idle_conns = 25
+max_open_conns = 2
+max_idle_time = "15m"
+
+[jwt]
+secret = "supersecret"
+duration = "48h"
