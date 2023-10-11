@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -30,7 +29,6 @@ func SignToken(claims interface{}) (string, error) {
 }
 
 func RetreiveUserIdFromContext(c echo.Context) (int, error) {
-	log.Println(c.Get("user"))
 	userId, ok := c.Get("user").(int)
 	if !ok {
 		return -1, errors.New("invalid server context")

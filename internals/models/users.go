@@ -50,7 +50,7 @@ func (m UserModel) Insert(user *User) error {
 
 func (m UserModel) Get(id int64) (*User, error) {
 	if id < 1 {
-		return nil, ErrorRecordNotFound
+		return nil, utils.ErrorRecordsNotFound
 	}
 
 	statement := "SELECT id, username, password_hash, email, created_at FROM users WHERE id=$1"
@@ -63,7 +63,7 @@ func (m UserModel) Get(id int64) (*User, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrorRecordNotFound
+			return nil, utils.ErrorRecordsNotFound
 		default:
 			return nil, err
 		}
@@ -82,7 +82,7 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrorRecordNotFound
+			return nil, utils.ErrorInvalidCredentials
 		default:
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 		return nil, err
 	}
 	if !match {
-		return nil, errors.New("invalid credentials")
+		return nil, utils.ErrorInvalidCredentials
 	}
 	return user, nil
 }
@@ -113,7 +113,7 @@ func (m UserModel) Update(user *User) error {
 
 func (m UserModel) Delete(id int64) error {
 	if id < 1 {
-		return ErrorRecordNotFound
+		return utils.ErrorRecordsNotFound
 	}
 	statement := "DELETE FROM users WHERE id=$1"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -128,7 +128,7 @@ func (m UserModel) Delete(id int64) error {
 		return err
 	}
 	if rowAffected == 0 {
-		return ErrorRecordNotFound
+		return utils.ErrorRecordsNotFound
 	}
 	return nil
 }

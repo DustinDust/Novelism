@@ -1,5 +1,5 @@
 [general]
-server = "0.0.0.0:8080"
+server = "0.0.0.0:8081"
 
 [logging]
 log_header = "${time_rfc3339_nano} [${prefix}][${short_file}][${line}]: ${level}\n"

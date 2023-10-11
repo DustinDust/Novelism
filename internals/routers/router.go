@@ -38,3 +38,8 @@ func (r Router) GetConfig(c echo.Context) error {
 		key:    viper.GetViper().Get(key),
 	})
 }
+
+// reutrn echo http error status 500
+func (r Router) serverError(err error) error {
+	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+}

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"gin_stuff/internals/models"
 	"gin_stuff/internals/utils"
 	"net/http"
@@ -27,11 +28,19 @@ func (r Router) Login(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := validate.ValidateStruct(loginPayload); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		if verr, ok := err.(*utils.StructValidationErrors); ok {
+			return verr.TranslateError()
+		} else {
+			return r.serverError(err)
+		}
 	}
 	user, err := r.Model.User.Login(loginPayload.Username, loginPayload.PlaintextPassword)
 	if err != nil {
-		return echo.NewHTTPError(401, err.Error())
+		if errors.Is(err, utils.ErrorInvalidCredentials) {
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		} else {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 	accessToken, err := utils.SignToken(user.ID)
 	if err != nil {
@@ -47,7 +56,11 @@ func (r Router) Register(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := validate.ValidateStruct(registerPayload); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		if verr, ok := err.(*utils.StructValidationErrors); ok {
+			return verr.TranslateError()
+		} else {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 	user := &models.User{
 		Username: registerPayload.Username,
