@@ -18,8 +18,8 @@ type User struct {
 	Username     string    `db:"username" json:"username"`
 	PasswordHash string    `db:"password_hash" json:"-"`
 	Email        string    `db:"email" json:"email"`
-	Created_at   time.Time `db:"created_at" json:"created_at"`
-	Updated_at   time.Time `db:"updated_at" json:"updated_at"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type UserRepository interface {
@@ -45,7 +45,7 @@ func (m UserModel) Insert(user *User) error {
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
 
-	return row.Scan(&user.ID, &user.Created_at)
+	return row.Scan(&user.ID, &user.CreatedAt)
 }
 
 func (m UserModel) Get(id int64) (*User, error) {
@@ -59,7 +59,7 @@ func (m UserModel) Get(id int64) (*User, error) {
 
 	row := m.DB.QueryRowContext(ctx, statement, id)
 	user := new(User)
-	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Email, &user.Created_at)
+	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Email, &user.CreatedAt)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -108,7 +108,7 @@ func (m UserModel) Update(user *User) error {
 	args := []interface{}{user.Username, user.PasswordHash, user.Email, pq.FormatTimestamp(time.Now())}
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
-	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Updated_at)
+	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.UpdatedAt)
 }
 
 func (m UserModel) Delete(id int64) error {

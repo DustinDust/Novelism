@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	customMiddleware "gin_stuff/internals/middleware"
+	"gin_stuff/internals/middlewares"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -84,7 +84,7 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 }
 
 func (app Application) RegisterRoute(r router.Router) {
-	jwtRequiredMiddleware := customMiddleware.NewJwtMiddleware()
+	jwtRequiredMiddleware := middlewares.NewJwtMiddleware()
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
 

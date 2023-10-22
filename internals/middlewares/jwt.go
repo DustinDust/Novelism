@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ func NewJwtMiddleware() echo.MiddlewareFunc {
 			if err != nil {
 				return nil, err
 			}
-			content, ok:= token.Claims.(*struct {
+			content, ok := token.Claims.(*struct {
 				Claims int `json:"claims"`
 				jwt.RegisteredClaims
 			})
