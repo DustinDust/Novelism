@@ -1,0 +1,6 @@
+ALTER TABLE books
+ADD COLUMN deleted_at TIMESTAMP;
+
+CREATE TYPE USER_STATUS AS ENUM ('active', 'idle', 'deleted');
+
+ALTER TABLE users ADD COLUMN status USER_STATUS

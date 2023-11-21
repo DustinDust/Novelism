@@ -43,3 +43,15 @@ func (r Router) GetConfig(c echo.Context) error {
 func (r Router) serverError(err error) error {
 	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }
+
+func (r Router) notFoundError(err error) error {
+	return echo.NewHTTPError(http.StatusNotFound, err.Error())
+}
+
+func (r Router) badRequestError(err error) error {
+	return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+}
+
+func (r Router) forbiddenError(err error) error {
+	return echo.NewHTTPError(http.StatusForbidden, err.Error())
+}

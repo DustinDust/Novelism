@@ -14,12 +14,12 @@ import (
 
 // user models
 type User struct {
-	ID           int64     `db:"id" json:"id"`
-	Username     string    `db:"username" json:"username"`
-	PasswordHash string    `db:"password_hash" json:"-"`
-	Email        string    `db:"email" json:"email"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	ID           int64      `db:"id" json:"id"`
+	Username     string     `db:"username" json:"username"`
+	PasswordHash string     `db:"password_hash" json:"-"`
+	Email        string     `db:"email" json:"email"`
+	CreatedAt    *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    *time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type UserRepository interface {
@@ -105,7 +105,7 @@ func (m UserModel) Update(user *User) error {
 		RETURNING username, password_hash, email, updated_at
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, pq.FormatTimestamp(time.Now())}
+	args := []interface{}{user.Username, user.PasswordHash, user.Email, pq.FormatTimestamp(time.Now().UTC())}
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
 	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.UpdatedAt)
@@ -115,7 +115,7 @@ func (m UserModel) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}
-	statement := "DELETE FROM users WHERE id=$1"
+	statement := "UPDATE users SET status=\"deleted\" WHERE id=$1"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

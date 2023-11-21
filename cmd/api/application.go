@@ -94,5 +94,7 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-up", r.Register)
 
 	//Authorized group
-	api.GET("/config/:key", r.GetConfig, jwtRequiredMiddleware)
+	api.POST("/book", r.CreateBook, jwtRequiredMiddleware)
+	api.GET("/book/:id", r.GetBook, jwtRequiredMiddleware)
+	api.PATCH("/book/:id", r.UpdateBook, jwtRequiredMiddleware)
 }

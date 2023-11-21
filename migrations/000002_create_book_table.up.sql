@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS books (
 	description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP
-	-- genres 
+	-- genres
 	-- tags
 	-- ratings
 )
