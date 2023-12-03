@@ -75,14 +75,18 @@ func NewApplication() *Application {
 }
 
 // some helper functions for application
+
+// Log fatal error
 func (app *Application) LogFatalf(format string, args ...interface{}) {
 	app.EchoInstance.Logger.Fatalf(format, args)
 }
 
+// Log server information
 func (app *Application) LogInfof(format string, args ...interface{}) {
 	app.EchoInstance.Logger.Infof(format, args)
 }
 
+// Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
 	jwtRequiredMiddleware := middlewares.NewJwtMiddleware()
 	//gloabl prefix
@@ -94,7 +98,10 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-up", r.Register)
 
 	//Authorized group
-	api.POST("/book", r.CreateBook, jwtRequiredMiddleware)
-	api.GET("/book/:id", r.GetBook, jwtRequiredMiddleware)
-	api.PATCH("/book/:id", r.UpdateBook, jwtRequiredMiddleware)
+	bookAPI := api.Group("/book", jwtRequiredMiddleware)
+	bookAPI.POST("", r.CreateBook)
+	bookAPI.GET("/:id", r.GetBook)
+	bookAPI.PATCH("/:id", r.UpdateBook)
+	bookAPI.DELETE("/:id", r.DeleteBook)
+	// api.GET("/book")
 }

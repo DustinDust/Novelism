@@ -131,5 +131,41 @@ func (r Router) UpdateBook(c echo.Context) error {
 	if book.Description != "" {
 		book.Description = updateBookPayload.Description
 	}
-	return r.Model.Book.Update(book)
+	err = r.Model.Book.Update(book)
+	if err != nil {
+		r.badRequestError(err)
+	}
+	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": book})
+}
+
+func (r Router) DeleteBook(c echo.Context) error {
+	idStr := c.Param("id")
+	if idStr == "" {
+		return r.badRequestError(utils.ErrorInvalidRouteParam)
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	userId, err := utils.RetreiveUserIdFromContext(c)
+	if err != nil {
+		return r.forbiddenError(err)
+	}
+	book, err := r.Model.Book.Get(int64(id))
+	if err != nil {
+		switch {
+		case errors.Is(err, utils.ErrorRecordsNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		default:
+			return r.serverError(err)
+		}
+	}
+	if book.UserID != int64(userId) {
+		return r.forbiddenError(utils.ErrorForbiddenResource)
+	}
+	err = r.Model.Book.Delete(int64(id))
+	if err != nil {
+		return r.serverError(err)
+	}
+	return c.JSON(http.StatusOK, echo.Map{"ok": true})
 }

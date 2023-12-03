@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"gin_stuff/internals/utils"
 	"time"
 
@@ -14,17 +15,12 @@ import (
 type Book struct {
 	ID          int64      `db:"id" json:"id"`
 	UserID      int64      `db:"user_id" json:"-"`
-	User        *User      `json:"user"`
+	User        *User      `json:"-"`
 	Title       string     `db:"title" json:"title"`
 	Description string     `db:"description" json:"description"`
 	CreatedAt   *time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time `db:"updated_at" json:"updated_at"`
-}
-
-type BookFilter struct {
-	UserID      int64
-	Title       string
-	Description string
+	DeletedAt   *time.Time `db:"deleted_at" json:"deleted_at"`
 }
 
 type BookRepository interface {
@@ -32,11 +28,53 @@ type BookRepository interface {
 	Get(id int64) (*Book, error)
 	Update(book *Book) error
 	Delete(id int64) error
-	Find(filter BookFilter) ([]*Book, error)
+	Find(userID int, title string, filter Filter) ([]*Book, Metadata, error)
 }
 
 type BookModel struct {
 	DB *sqlx.DB
+}
+
+func (m BookModel) Find(userId int, title string, filter Filter) ([]*Book, Metadata, error) {
+	statement := fmt.Sprintf(`
+		SELETCT count(*) OVER(), id, created_at, updated_at, deleted_at, title, description
+		FROM books b
+		JOIN users u ON b.user_id = u.id;
+		WHERE u.id = $1
+		AND (to_tsvector('simple', title) @@ plainto_tsquery('simple', $2) OR $2= '')  
+		ORDER BY %s %s, id ASC
+		LIMIT $3
+		OFFSET $4
+	`, filter.SortColumn(), filter.SortDirection())
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	args := []interface{}{userId, title, filter.Limit(), filter.Offset()}
+	rows, err := m.DB.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return nil, Metadata{}, err
+	}
+	books := []*Book{}
+	totalRecords := 0
+	for rows.Next() {
+		var book Book
+		err := rows.Scan(
+			&totalRecords,
+			&book.ID,
+			&book.CreatedAt,
+			&book.UpdatedAt,
+			&book.DeletedAt,
+			&book.Title,
+			&book.Description,
+		)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		books = append(books, &book)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+	return books, CalculateMetadata(totalRecords, filter.PageSize, filter.Page), nil
 }
 
 func (m BookModel) Insert(book *Book) error {
@@ -62,7 +100,7 @@ func (m BookModel) Get(id int64) (*Book, error) {
 		FROM books b
 		JOIN users u
 		ON b.user_id = u.id
-		WHERE b.id=$1
+		WHERE b.id=$1 AND b.deleted_at IS NULL
 		LIMIT 1
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -128,8 +166,4 @@ func (m BookModel) Delete(id int64) error {
 		return utils.ErrorRecordsNotFound
 	}
 	return nil
-}
-
-func (m BookModel) Find(filter BookFilter) ([]*Book, error) {
-	return []*Book{}, nil
 }
