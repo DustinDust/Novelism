@@ -18,6 +18,7 @@ type User struct {
 	Username     string     `db:"username" json:"username"`
 	PasswordHash string     `db:"password_hash" json:"-"`
 	Email        string     `db:"email" json:"email"`
+	Status       string     `db:"status" json:"-"`
 	CreatedAt    *time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -36,11 +37,11 @@ type UserModel struct {
 
 func (m UserModel) Insert(user *User) error {
 	statement := `
-		INSERT INTO users (username, password_hash, email)
-		VALUES ($1, $2, $3)
+		INSERT INTO users (username, password_hash, email, status)
+		VALUES ($1, $2, $3, &4)
 		RETURNING id, created_at;
 	`
-	args := []interface{}{user.Username, user.PasswordHash, user.Email}
+	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Status}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
@@ -72,7 +73,7 @@ func (m UserModel) Get(id int64) (*User, error) {
 }
 
 func (m UserModel) Login(username string, plaintextPassword string) (*User, error) {
-	statement := "SELECT id, username, password_hash, email FROM users WHERE username=$1"
+	statement := "SELECT id, username, password_hash, email FROM users WHERE username=$1 AND status != 'deleted'"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -100,12 +101,12 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 func (m UserModel) Update(user *User) error {
 	statement := `
 		UPDATE users
-		SET username=$1, password_hash=$2, email=$3, updated_at=$4
+		SET username=$1, password_hash=$2, email=$3, status=$4, updated_at=$5
 		WHERE id=$5
-		RETURNING username, password_hash, email, updated_at
+		RETURNING username, password_hash, email, status, updated_at
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, pq.FormatTimestamp(time.Now().UTC())}
+	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Status, pq.FormatTimestamp(time.Now().UTC())}
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
 	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.UpdatedAt)
@@ -115,7 +116,7 @@ func (m UserModel) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}
-	statement := "UPDATE users SET status=\"deleted\" WHERE id=$1"
+	statement := "UPDATE users SET status='deleted' WHERE id=$1"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 

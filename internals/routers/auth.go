@@ -65,6 +65,7 @@ func (r Router) Register(c echo.Context) error {
 	user := &models.User{
 		Username: registerPayload.Username,
 		Email:    registerPayload.Email,
+		Status:   "active",
 	}
 	if err := user.SetPassword(registerPayload.PlaintextPassword); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError)
