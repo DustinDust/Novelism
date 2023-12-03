@@ -1,3 +1,6 @@
+## This is a development config file. 
+# Production config file should be hidden & added to .gitignore
+
 [general]
 server = "0.0.0.0:8081"
 

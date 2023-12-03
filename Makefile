@@ -1,5 +1,6 @@
 ENV ?= "development"
 DB_CONN ?= "postgres://postgres:123123@localhost/novelism?sslmode=disable"
+TASK ?= main.go
 
 run.dev:
 	ENV=${ENV} go run ./cmd/api/
@@ -27,3 +28,7 @@ migrate.drop:
 
 migrate.version:
 	migrate -path ./migrations -database ${DB_CONN} version
+
+# E.g make run.task ENV="production" TASK=cmd/task/populate_user_status.go
+run.task:
+	ENV=${ENV} go run ${TASK}
