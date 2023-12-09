@@ -55,3 +55,7 @@ func (r Router) badRequestError(err error) error {
 func (r Router) forbiddenError(err error) error {
 	return echo.NewHTTPError(http.StatusForbidden, err.Error())
 }
+
+func (r Router) unauthorizedError(err error) error {
+	return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+}

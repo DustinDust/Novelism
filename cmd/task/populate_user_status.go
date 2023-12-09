@@ -14,6 +14,13 @@ import (
 - This is used when `status` is added to `users“ table.
 */
 func main() {
+	err := perform()
+	if err != nil {
+		log.Printf("Error performing tast %v\n", err)
+	}
+}
+
+func perform() error {
 	conf, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config %v", err)
@@ -33,15 +40,18 @@ func main() {
 		UPDATE users SET status = 'active' WHERE status IS NULL
 	`
 	tx := dbInstance.MustBegin()
+	defer tx.Rollback()
 	res := tx.MustExec(statement)
 	if row_aff, err := res.RowsAffected(); row_aff == 0 || err != nil {
 		if err == nil {
 			log.Println("Updated 0 row")
+		} else {
+			return err
 		}
-		log.Fatalf("Something wrong while updating %v\n", err)
 	}
 	err = tx.Commit()
 	if err != nil {
-		log.Fatalf("Something wrong while updating %v\n", err)
+		return err
 	}
+	return nil
 }

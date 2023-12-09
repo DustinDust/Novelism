@@ -135,7 +135,7 @@ func (r Router) UpdateBook(c echo.Context) error {
 	if err != nil {
 		r.badRequestError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": book})
+	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": echo.Map{"data": book}})
 }
 
 func (r Router) DeleteBook(c echo.Context) error {
@@ -168,4 +168,62 @@ func (r Router) DeleteBook(c echo.Context) error {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+}
+
+func (r Router) FindBooks(c echo.Context) error {
+	currentUserId, err := utils.RetreiveUserIdFromContext(c)
+	if err != nil {
+		r.unauthorizedError(err)
+	}
+	filter := models.Filter{
+		Page:         1,
+		PageSize:     10,
+		SortSafeList: []string{"id", "title", "-id", "-title", "created_at", "-created_at"},
+		Sort:         "created_at", // default sort
+	}
+
+	userId := currentUserId // default to current session
+	var title string
+
+	queryParams := c.QueryParams()
+	if queryParams.Has("userId") {
+		var err error
+		userId, err = strconv.Atoi(queryParams.Get("userId"))
+		if err != nil {
+			return r.badRequestError(err)
+		}
+	}
+	if queryParams.Has("title") {
+		title = queryParams.Get("title")
+	}
+	if queryParams.Has("page") {
+		page, err := strconv.Atoi(queryParams.Get("page"))
+		if err != nil {
+			return r.badRequestError(err)
+		}
+		filter.Page = page
+	}
+	if queryParams.Has("pageSize") {
+		pageSize, err := strconv.Atoi(queryParams.Get("pageSize"))
+		if err != nil {
+			return r.badRequestError(err)
+		}
+		filter.PageSize = pageSize
+	}
+	if queryParams.Has("sort") {
+		filter.Sort = queryParams.Get("sort")
+	}
+	books, metadata, err := r.Model.Book.Find(userId, title, filter)
+	if err != nil {
+		return r.serverError(err)
+	}
+	return c.JSON(http.StatusOK,
+		echo.Map{
+			"metadata": metadata,
+			"data": echo.Map{
+				"books": books,
+			},
+			"ok": true,
+		},
+	)
 }

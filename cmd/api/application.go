@@ -97,11 +97,11 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-in", r.Login)
 	auth.POST("/sign-up", r.Register)
 
-	//Authorized group
-	bookAPI := api.Group("/book", jwtRequiredMiddleware)
-	bookAPI.POST("", r.CreateBook)
+	//book group
+	bookAPI := api.Group("/books", jwtRequiredMiddleware)
+	bookAPI.GET("", r.FindBooks)
 	bookAPI.GET("/:id", r.GetBook)
+	bookAPI.POST("", r.CreateBook)
 	bookAPI.PATCH("/:id", r.UpdateBook)
 	bookAPI.DELETE("/:id", r.DeleteBook)
-	// api.GET("/book")
 }

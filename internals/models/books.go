@@ -35,14 +35,20 @@ type BookModel struct {
 	DB *sqlx.DB
 }
 
+// unusable right now
+// find all book of 1 user
+// might want to make something more usecase-specific instead of this one giant, error prone api
 func (m BookModel) Find(userId int, title string, filter Filter) ([]*Book, Metadata, error) {
+	if userId <= 0 {
+		return nil, Metadata{}, utils.ErrorUnauthorized
+	}
 	statement := fmt.Sprintf(`
-		SELETCT count(*) OVER(), id, created_at, updated_at, deleted_at, title, description
+		SELECT count(*) OVER(), b.id, b.created_at, b.updated_at, b.deleted_at, b.title, b.description
 		FROM books b
-		JOIN users u ON b.user_id = u.id;
+		JOIN users u ON b.user_id = u.id
 		WHERE u.id = $1
-		AND (to_tsvector('simple', title) @@ plainto_tsquery('simple', $2) OR $2= '')  
-		ORDER BY %s %s, id ASC
+		AND (to_tsvector('simple', title) @@ plainto_tsquery('simple', $2) OR $2= '')
+		ORDER BY %s %s, b.id ASC
 		LIMIT $3
 		OFFSET $4
 	`, filter.SortColumn(), filter.SortDirection())
