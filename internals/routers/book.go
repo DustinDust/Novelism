@@ -24,7 +24,7 @@ func (r Router) CreateBook(c echo.Context) error {
 	validate := utils.NewValidator()
 	createBookPayload := new(CreateBookPayload)
 	if err := c.Bind(createBookPayload); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return r.badRequestError(err)
 	}
 	if err := validate.ValidateStruct(createBookPayload); err != nil {
 		if verr, ok := err.(*utils.StructValidationErrors); ok {
@@ -73,7 +73,7 @@ func (r Router) GetBook(c echo.Context) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+			return r.notFoundError(err)
 		default:
 			return r.serverError(err)
 		}
@@ -100,7 +100,7 @@ func (r Router) UpdateBook(c echo.Context) error {
 	validate := utils.NewValidator()
 	updateBookPayload := new(UpdateBookPayload)
 	if err := c.Bind(updateBookPayload); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return r.badRequestError(err)
 	}
 	if err := validate.ValidateStruct(updateBookPayload); err != nil {
 		if verr, ok := err.(*utils.StructValidationErrors); ok {
@@ -125,17 +125,17 @@ func (r Router) UpdateBook(c echo.Context) error {
 	if book.UserID != int64(userId) {
 		return r.forbiddenError(utils.ErrorForbiddenResource)
 	}
-	if book.Title != "" {
+	if updateBookPayload.Title != "" {
 		book.Title = updateBookPayload.Title
 	}
-	if book.Description != "" {
+	if updateBookPayload.Description != "" {
 		book.Description = updateBookPayload.Description
 	}
 	err = r.Model.Book.Update(book)
 	if err != nil {
-		r.badRequestError(err)
+		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": echo.Map{"data": book}})
+	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": book})
 }
 
 func (r Router) DeleteBook(c echo.Context) error {

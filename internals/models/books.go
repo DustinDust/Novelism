@@ -134,7 +134,7 @@ func (m BookModel) Get(id int64) (*Book, error) {
 			return nil, err
 		}
 	}
-	book.UserID = book.User.ID // set UesrID since scanning does not automatically do this
+	book.UserID = book.User.ID // set UserID since scanning does not automatically do this
 	return book, nil
 }
 

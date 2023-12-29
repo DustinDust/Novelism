@@ -116,11 +116,11 @@ func (m UserModel) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}
-	statement := "UPDATE users SET status='deleted' WHERE id=$1"
+	statement := "UPDATE users SET status='deleted', updated_at=$2 WHERE id=$1"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	result, err := m.DB.ExecContext(ctx, statement, id)
+	result, err := m.DB.ExecContext(ctx, statement, id, pq.FormatTimestamp(time.Now().UTC()))
 	if err != nil {
 		return err
 	}

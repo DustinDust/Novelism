@@ -7,8 +7,9 @@ import (
 )
 
 type Models struct {
-	User UserRepository
-	Book BookRepository
+	User    UserRepository
+	Book    BookRepository
+	Chapter ChapterRepository
 }
 
 func NewModels(db *sqlx.DB) Models {
@@ -17,6 +18,9 @@ func NewModels(db *sqlx.DB) Models {
 			DB: db,
 		},
 		Book: BookModel{
+			DB: db,
+		},
+		Chapter: ChapterModel{
 			DB: db,
 		},
 	}
