@@ -1,22 +1,12 @@
 package utils
 
 import (
-	"github.com/rs/zerolog/log"
+	"os"
+
+	"github.com/rs/zerolog"
 )
 
-func LogWarning(any map[string]interface{}) {
-	logEvent := log.Warn()
-	for key, value := range any {
-		logEvent.Any(key, value)
-	}
-	logEvent.Send()
-}
-
-func LogInfo(any map[string]interface{}) {
-	logEvent := log.Info()
-	for key, value := range any {
-		logEvent.Any(key, value)
-	}
-	logEvent.Send()
-
-}
+var Logger = zerolog.New(zerolog.ConsoleWriter(zerolog.ConsoleWriter{
+	Out:        os.Stdout,
+	TimeFormat: zerolog.TimeFormatUnix,
+}))

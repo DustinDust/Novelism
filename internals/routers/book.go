@@ -155,7 +155,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+			return r.notFoundError(err)
 		default:
 			return r.serverError(err)
 		}

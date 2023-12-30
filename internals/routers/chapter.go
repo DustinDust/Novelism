@@ -74,11 +74,20 @@ func (r Router) CreateChapter(c echo.Context) error {
 }
 
 // get all chapters from 1 book (with optional filter)
-func (r Router) GetChapters(c echo.Context) error {
+func (r Router) FindChapters(c echo.Context) error {
 	bookIdStr := c.Param("bookId")
 	bookId, err := strconv.Atoi(bookIdStr)
 	if err != nil {
 		return r.badRequestError(err)
+	}
+	_, err = r.Model.Book.Get(int64(bookId))
+	if err != nil {
+		switch {
+		case errors.Is(err, utils.ErrorRecordsNotFound):
+			return r.notFoundError(err)
+		default:
+			return r.serverError(err)
+		}
 	}
 	var title string
 	filter := models.Filter{
@@ -134,7 +143,7 @@ func (r Router) GetChapters(c echo.Context) error {
 }
 
 func (r Router) UpdateChapter(c echo.Context) error {
-	chapterId, err := strconv.Atoi(c.Param("chapterId"))
+	chapterId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
@@ -182,7 +191,33 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	})
 }
 
-// WIP
 func (r Router) DeleteChapter(c echo.Context) error {
-	return nil
+	idStr := c.Param("id")
+	if idStr == "" {
+		return r.badRequestError(utils.ErrorInvalidRouteParam)
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	userId, err := utils.RetreiveUserIdFromContext(c)
+	if err != nil {
+		return r.forbiddenError(err)
+	}
+	chapter, err := r.Model.Chapter.Get(int64(id))
+	if err != nil {
+		switch {
+		case errors.Is(err, utils.ErrorRecordsNotFound):
+			return r.notFoundError(err)
+		default:
+			return r.serverError(err)
+		}
+	}
+	if chapter.AuthorID != int64(userId) {
+		return r.forbiddenError(utils.ErrorForbiddenResource)
+	}
+	if err != nil {
+		return r.serverError(err)
+	}
+	return c.JSON(http.StatusOK, echo.Map{"ok": true})
 }

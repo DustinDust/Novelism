@@ -1,9 +1,11 @@
-## This is a development config file. 
+## This is a development config file.
 # Production config file should be hidden & added to .gitignore
 
 [general]
 server = "0.0.0.0:8081"
 
+# Depercrated?
+# Currently not using these right now
 [logging]
 log_header = "${time_rfc3339_nano} [${prefix}][${short_file}][${line}]: ${level}\n"
 http_log_format = "${time_rfc3339_nano} - [${remote_ip}][${method}] ${uri} ${status} ${latency_human} (in: ${bytes_in}B, out: ${bytes_out}B) (Error: ${error})\n"

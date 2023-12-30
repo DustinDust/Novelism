@@ -1,12 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"gin_stuff/internals/config"
 	"gin_stuff/internals/database"
 	"gin_stuff/internals/models"
 	router "gin_stuff/internals/routers"
+	"gin_stuff/internals/utils"
 	"log"
 	"strings"
+	"time"
+
+	eLog "github.com/labstack/gommon/log"
+	"github.com/rs/zerolog"
 
 	"gin_stuff/internals/middlewares"
 
@@ -41,11 +47,53 @@ func NewApplication() *Application {
 
 	// apply configuration
 	app.EchoInstance.Debug = true
-	app.EchoInstance.Logger.SetHeader(viper.GetString("logging.log_header"))
-	app.EchoInstance.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		Format: viper.GetString("logging.http_log_format"),
+	app.EchoInstance.Logger.SetLevel(eLog.DEBUG)
+	app.EchoInstance.Use(middleware.RequestID())
+	app.EchoInstance.Use(middleware.RequestLoggerWithConfig(
+		middleware.RequestLoggerConfig{
+			LogURI:          true,
+			LogStatus:       true,
+			LogError:        true,
+			LogLatency:      true,
+			LogProtocol:     true,
+			LogMethod:       true,
+			LogRequestID:    true,
+			LogResponseSize: true,
+			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+				var event *zerolog.Event
+				var msg string
+				if v.Error != nil {
+					event = utils.Logger.Error()
+					msg = "REQ_ERR"
+				} else {
+					event = utils.Logger.Info()
+					msg = "REQ_OK"
+				}
+				event.Time("time", v.StartTime.UTC().Local())
+				event.Str("req_id", v.RequestID)
+				event.Str("method", v.Method)
+				event.Str("uri", v.URI)
+				event.Int("status", v.Status)
+				event.Dur("latency", v.Latency)
+				event.Str("prot", v.Protocol)
+				event.Int64("resp_size", v.ResponseSize)
+				event.Stack().Err(v.Error)
+				event.Msg(msg)
+				return nil
+			},
+		},
+	))
+	app.EchoInstance.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			event := utils.Logger.Error()
+			event.Time("time", time.Now())
+			event.Stack().Err(err)
+			event.Str("uri", c.Path())
+			event.Send()
+			fmt.Println(string(stack))
+			return err
+		},
 	}))
-	app.EchoInstance.Use(middleware.Recover())
 	app.EchoInstance.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 	}))
@@ -98,10 +146,17 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-up", r.Register)
 
 	//book group
-	bookAPI := api.Group("/books", jwtRequiredMiddleware)
+	bookAPI := api.Group("/book", jwtRequiredMiddleware)
 	bookAPI.GET("", r.FindBooks)
 	bookAPI.GET("/:id", r.GetBook)
 	bookAPI.POST("", r.CreateBook)
 	bookAPI.PATCH("/:id", r.UpdateBook)
 	bookAPI.DELETE("/:id", r.DeleteBook)
+
+	// chapter API
+	chapterAPI := api.Group("/book/:bookId/chapter")
+	chapterAPI.GET("", r.FindChapters)
+	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware)
+	chapterAPI.PATCH("", r.UpdateChapter, jwtRequiredMiddleware)
+	chapterAPI.DELETE("/:id", r.DeleteChapter, jwtRequiredMiddleware)
 }

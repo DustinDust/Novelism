@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"gin_stuff/internals/utils"
+	"math"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -49,8 +50,8 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 		JOIN users u ON u.id = ch.author_id
 		JOIN books b ON b.id = ch.book_id
 		WHERE b.id = $1
-		AND (to_tsvector('simple', title) @@ plain_tsquery('simple', $2) OR $2 = '')
-		ORDER BY %s %s c.chapter_no ASC
+		AND (to_tsvector('simple', ch.title) @@ plainto_tsquery('simple', $2) OR $2 = '')
+		ORDER BY %s %s, ch.chapter_no ASC
 		LIMIT $3
 		OFFSET $4
 	`, filter.SortColumn(), filter.SortDirection())
@@ -58,7 +59,7 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 	defer cancel()
 
 	args := []interface{}{bookId, title, filter.Limit(), filter.Offset()}
-	rows, err := m.DB.QueryContext(ctx, statement, args)
+	rows, err := m.DB.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, Metadata{}, err
 	}
@@ -66,6 +67,8 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 	totalRecords := 0
 	for rows.Next() {
 		var chapter Chapter
+		chapter.Author = &User{}
+		chapter.Book = &Book{}
 		err := rows.Scan(
 			&totalRecords,
 			&chapter.ID,
@@ -82,6 +85,8 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 		if err != nil {
 			return nil, Metadata{}, err
 		}
+		chapter.AuthorID = chapter.Author.ID
+		chapter.BookID = chapter.Book.ID
 		chapters = append(chapters, &chapter)
 	}
 	if err = rows.Err(); err != nil {
@@ -93,10 +98,11 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 func (ch *Chapter) UpdateContent(content *Content) error {
 	currentTime := time.Now().UTC()
 	if content == nil {
-		utils.LogWarning(map[string]interface{}{
-			"message": "You should not update a nil content to a chapter",
-			"field":   "chapter#content",
-		})
+		utils.Logger.Warn().Any("Warn",
+			map[string]interface{}{
+				"message": "You should not update a nil content to a chapter",
+				"field":   "chapter#content",
+			}).Send()
 	}
 	if ch.Content != nil {
 		content.CreatedAt = ch.Content.CreatedAt
@@ -112,12 +118,19 @@ func (ch *Chapter) UpdateContent(content *Content) error {
 func (m ChapterModel) Insert(chapter *Chapter) error {
 	if chapter.ChapterNO == 0 {
 		chapters, _, err := m.Find(chapter.BookID, "", Filter{
-			Sort: "chapter_no DESC",
+			SortSafeList: []string{"-chapter_no"},
+			Sort:         "-chapter_no",
+			PageSize:     math.MaxInt,
+			Page:         1,
 		})
 		if err != nil {
 			return err
 		}
-		chapter.ChapterNO = chapters[len(chapters)-1].ChapterNO + 1
+		if len(chapters) > 0 {
+			chapter.ChapterNO = chapters[0].ChapterNO + 1
+		} else {
+			chapter.ChapterNO = 1
+		}
 	}
 	// this should create chapter only and the content will be added in later
 	statement := `
@@ -160,7 +173,7 @@ func (m ChapterModel) Get(id int64) (*Chapter, error) {
 	err := row.Scan(
 		&chapter.ID, &chapter.Title, &chapter.ChapterNO, &chapter.Description,
 		&chapter.CreatedAt, &chapter.UpdatedAt, &chapter.Book.ID, &chapter.Book.Title,
-		&chapter.Book.Description, &chapter.Author.ID, &chapter.Author.Username, &chapter.Author.Email,
+		&chapter.Book.Description, &chapter.Author.ID, &chapter.Author.Username, &chapter.Author.Status, &chapter.Author.Email,
 	)
 	if err != nil {
 		switch {
