@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_unique_chapter_chapter_no_book_id;

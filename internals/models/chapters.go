@@ -23,14 +23,14 @@ type Chapter struct {
 	Title       string     `db:"title" json:"title"`
 	Content     *Content   `json:"content"`
 	Description string     `db:"description" json:"description"`
-	CreatedAt   *time.Time `db:"created_at" json:"createdAt"`
+	CreatedAt   *time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time `db:"updated_at" json:"updated_at"`
 	DeletedAt   *time.Time `db:"deleted_at" json:"deleted_at"`
 }
 
 type ChapterRepository interface {
 	Insert(chapter *Chapter) error
-	Get(id int64) (*Chapter, error)
+	Get(chapterNo int64, bookId int64) (*Chapter, error)
 	Update(chapter *Chapter) error
 	Delete(id int64) error
 	Find(bookId int64, title string, filter Filter) ([]*Chapter, Metadata, error)
@@ -49,7 +49,7 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 		FROM chapters ch
 		JOIN users u ON u.id = ch.author_id
 		JOIN books b ON b.id = ch.book_id
-		WHERE b.id = $1
+		WHERE b.id = $1 AND ch.deleted_at IS NULL
 		AND (to_tsvector('simple', ch.title) @@ plainto_tsquery('simple', $2) OR $2 = '')
 		ORDER BY %s %s, ch.chapter_no ASC
 		LIMIT $3
@@ -147,8 +147,9 @@ func (m ChapterModel) Insert(chapter *Chapter) error {
 	return row.Scan(&chapter.ID, &chapter.CreatedAt)
 }
 
-func (m ChapterModel) Get(id int64) (*Chapter, error) {
-	if id < 1 {
+// this get by the uniqe index, not the id. Personally i dont know what to do with it :(
+func (m ChapterModel) Get(chapterNo int64, bookId int64) (*Chapter, error) {
+	if bookId < 1 || chapterNo < 1 {
 		return nil, utils.ErrorRecordsNotFound
 	}
 
@@ -160,7 +161,7 @@ func (m ChapterModel) Get(id int64) (*Chapter, error) {
 		FROM chapters ch
 		JOIN books b ON b.id = ch.book_id
 		JOIN users u ON u.id = ch.author_id
-		WHERE ch.id = $1 AND ch.deleted_at IS NULL
+		WHERE ch.chapter_no = $1 AND b.id = $2 AND ch.deleted_at IS NULL
 		LIMIT 1
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -169,7 +170,7 @@ func (m ChapterModel) Get(id int64) (*Chapter, error) {
 	chapter := new(Chapter)
 	chapter.Author = new(User)
 	chapter.Book = new(Book)
-	row := m.DB.QueryRowContext(ctx, statement, id)
+	row := m.DB.QueryRowContext(ctx, statement, chapterNo, bookId)
 	err := row.Scan(
 		&chapter.ID, &chapter.Title, &chapter.ChapterNO, &chapter.Description,
 		&chapter.CreatedAt, &chapter.UpdatedAt, &chapter.Book.ID, &chapter.Book.Title,
@@ -191,7 +192,7 @@ func (m ChapterModel) Get(id int64) (*Chapter, error) {
 
 func (m ChapterModel) Update(ch *Chapter) error {
 	statement := `
-		UPDATE chapter
+		UPDATE chapters
 		SET title=$2, description=$3, updated_at=$4
 		WHERE id=$1
 		RETURNING title, description, chapter_no, updated_at

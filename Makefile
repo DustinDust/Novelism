@@ -11,6 +11,9 @@ build:
 start:
 	make build && ./bin/api
 
+db.shell:
+	docker exec -it postgresql_db psql -U postgres
+
 migrate.create:
 	migrate create -seq -ext .sql -dir ./migrations ${NAME}
 

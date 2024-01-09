@@ -69,7 +69,7 @@ func NewApplication() *Application {
 					event = utils.Logger.Info()
 					msg = "REQ_OK"
 				}
-				event.Time("time", v.StartTime.UTC().Local())
+				event.Time("time", v.StartTime.Local())
 				event.Str("req_id", v.RequestID)
 				event.Str("method", v.Method)
 				event.Str("uri", v.URI)
@@ -157,6 +157,6 @@ func (app Application) RegisterRoute(r router.Router) {
 	chapterAPI := api.Group("/book/:bookId/chapter")
 	chapterAPI.GET("", r.FindChapters)
 	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware)
-	chapterAPI.PATCH("", r.UpdateChapter, jwtRequiredMiddleware)
-	chapterAPI.DELETE("/:id", r.DeleteChapter, jwtRequiredMiddleware)
+	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, jwtRequiredMiddleware)
+	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, jwtRequiredMiddleware)
 }

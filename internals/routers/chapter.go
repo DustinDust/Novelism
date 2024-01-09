@@ -17,7 +17,6 @@ type CreateChapterPayload struct {
 }
 
 type UpdateChapterPayload struct {
-	ChapterID   int    `validate:"required,gte=1"`
 	Title       string `json:"title" validate:"max=128"`
 	Description string `json:"description"`
 }
@@ -143,7 +142,11 @@ func (r Router) FindChapters(c echo.Context) error {
 }
 
 func (r Router) UpdateChapter(c echo.Context) error {
-	chapterId, err := strconv.Atoi(c.Param("id"))
+	chapterNo, err := strconv.Atoi(c.Param("chapterNo"))
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	bookId, err := strconv.Atoi(c.Param("bookId"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
@@ -163,7 +166,7 @@ func (r Router) UpdateChapter(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	chapter, err := r.Model.Chapter.Get(int64(chapterId))
+	chapter, err := r.Model.Chapter.Get(int64(chapterNo), int64(bookId))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -192,11 +195,11 @@ func (r Router) UpdateChapter(c echo.Context) error {
 }
 
 func (r Router) DeleteChapter(c echo.Context) error {
-	idStr := c.Param("id")
-	if idStr == "" {
-		return r.badRequestError(utils.ErrorInvalidRouteParam)
+	chapterNo, err := strconv.Atoi(c.Param("chapterNo"))
+	if err != nil {
+		return r.badRequestError(err)
 	}
-	id, err := strconv.Atoi(idStr)
+	bookId, err := strconv.Atoi(c.Param("bookId"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
@@ -204,7 +207,7 @@ func (r Router) DeleteChapter(c echo.Context) error {
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	chapter, err := r.Model.Chapter.Get(int64(id))
+	chapter, err := r.Model.Chapter.Get(int64(chapterNo), int64(bookId))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
