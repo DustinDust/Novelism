@@ -19,3 +19,10 @@ max_idle_time = "15m"
 [jwt]
 secret = "supersecret"
 duration = "48h"
+
+[mailer]
+host = "smtp-relay.brevo.com"
+port = 587
+login = "nam.dangphuong26@gmail.com"
+password = "sPOnD2VxWYqLRbMA"
+timeout = "3s"

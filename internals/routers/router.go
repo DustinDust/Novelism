@@ -2,6 +2,7 @@ package router
 
 import (
 	"gin_stuff/internals/models"
+	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"net/http"
 
@@ -10,7 +11,8 @@ import (
 )
 
 type Router struct {
-	Model *models.Models
+	Model  *models.Models
+	Mailer *services.MailerService
 }
 
 func NewRouter(model *models.Models) Router {
@@ -37,6 +39,29 @@ func (r Router) GetConfig(c echo.Context) error {
 		"user": user,
 		key:    viper.GetViper().Get(key),
 	})
+}
+
+func (r Router) SendTestMail(c echo.Context) error {
+	mailerInfo := struct {
+		To    string `json:"to"`
+		Title string `json:"title"`
+		Text  string `json:"text"`
+	}{}
+	if err := c.Bind(&mailerInfo); err != nil {
+		utils.Logger.Error().AnErr("binding", err).Send()
+		return r.badRequestError(err)
+	}
+	mail := services.Mail{
+		From:    "no-reply@novelism.com",
+		To:      mailerInfo.To,
+		Subject: mailerInfo.Title,
+		Content: mailerInfo.Text,
+	}
+	if err := r.Mailer.Perform(&mail); err != nil {
+		utils.Logger.Error().AnErr("mail_err", err)
+		return r.serverError(err)
+	}
+	return c.JSON(http.StatusOK, nil)
 }
 
 // reutrn echo http error status 500

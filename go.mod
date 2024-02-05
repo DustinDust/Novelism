@@ -12,6 +12,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.31.0
 	github.com/spf13/viper v1.16.0
+	github.com/wneessen/go-mail v0.4.0
 	golang.org/x/crypto v0.13.0
 )
 

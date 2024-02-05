@@ -34,6 +34,8 @@ type ChapterRepository interface {
 	Update(chapter *Chapter) error
 	Delete(id int64) error
 	Find(bookId int64, title string, filter Filter) ([]*Chapter, Metadata, error)
+	GetContent(chapterNo, bookId int64) (*Chapter, error)
+	UpdateContent(chapter *Chapter, content string) error
 }
 
 type ChapterModel struct {
@@ -95,26 +97,6 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 	return chapters, CalculateMetadata(totalRecords, filter.PageSize, filter.Page), nil
 }
 
-func (ch *Chapter) UpdateContent(content *Content) error {
-	currentTime := time.Now().UTC()
-	if content == nil {
-		utils.Logger.Warn().Any("Warn",
-			map[string]interface{}{
-				"message": "You should not update a nil content to a chapter",
-				"field":   "chapter#content",
-			}).Send()
-	}
-	if ch.Content != nil {
-		content.CreatedAt = ch.Content.CreatedAt
-		content.UpdatedAt = &currentTime
-		ch.Content = content
-	} else {
-		content.CreatedAt = &currentTime
-		ch.Content = content
-	}
-	return nil
-}
-
 func (m ChapterModel) Insert(chapter *Chapter) error {
 	if chapter.ChapterNO == 0 {
 		chapters, _, err := m.Find(chapter.BookID, "", Filter{
@@ -147,7 +129,7 @@ func (m ChapterModel) Insert(chapter *Chapter) error {
 	return row.Scan(&chapter.ID, &chapter.CreatedAt)
 }
 
-// this get by the uniqe index, not the id. Personally i dont know what to do with it :(
+// this get by the uniqe index, not the id. Personally I dont know what to do with it :(
 func (m ChapterModel) Get(chapterNo int64, bookId int64) (*Chapter, error) {
 	if bookId < 1 || chapterNo < 1 {
 		return nil, utils.ErrorRecordsNotFound
@@ -228,4 +210,95 @@ func (m ChapterModel) Delete(id int64) error {
 		return utils.ErrorRecordsNotFound
 	}
 	return nil
+}
+
+func (m ChapterModel) GetContent(chapterNo, bookId int64) (*Chapter, error) {
+	chapter := new(Chapter)
+	chapter.Content = new(Content)
+	chapter.Book = new(Book)
+	chapter.Author = new(User)
+
+	statement := `
+		SELECT ch.id, ch.chapter_no, ch.title, b.id, b.title, a.id, a.username,
+		c.id, c.text_content, c.updated_at, c.created_at
+		FROM chapter ch
+		JOIN content c ON c.chapter_id = ch.id
+		JOIN users a ON a.id = ch.author_id
+		JOIN books b ON b.id = ch.book_id
+		WHERE ch.chapter_no = $1
+		AND b.id = $2
+		AND deleted_at IS NULL
+		LIMIT 1
+	`
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	args := []interface{}{chapterNo, bookId}
+	row := m.DB.QueryRowContext(ctx, statement, args...)
+	err := row.Scan(
+		&chapter.ID,
+		&chapter.ChapterNO,
+		&chapter.Title,
+		&chapter.Book.ID,
+		&chapter.Book.Title,
+		&chapter.Author.ID,
+		&chapter.Author.Username,
+		&chapter.Content.ID,
+		&chapter.Content.TextContent,
+		&chapter.Content.CreatedAt,
+		&chapter.Content.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return chapter, nil
+}
+
+func (m ChapterModel) UpdateContent(chapter *Chapter, textContent string) error {
+	// check if this chapter object already populate content
+	if chapter.Content.ID == 0 {
+		var chapterNo, bookId int64
+		chapterNo = chapter.ChapterNO
+		if chapter.BookID != 0 {
+			bookId = chapter.BookID
+		} else if chapter.Book.ID != 0 {
+			bookId = chapter.Book.ID
+		} else {
+			return utils.ErrorInvalidModel
+		}
+		c, err := m.GetContent(chapterNo, bookId)
+		if err != nil {
+			return err
+		}
+		chapter.Content = c.Content
+	}
+	if chapter.Content.ID == 0 {
+		// content doesnt exist
+		createContentStatement := `
+			INSERT INTO contents (text_content)
+			VALUES ($1)
+			RETURNING id, text_content, created_at
+		`
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		row := m.DB.QueryRowContext(ctx, createContentStatement, textContent)
+		return row.Scan(&chapter.Content.ID, &chapter.Content.TextContent, &chapter.Content.CreatedAt)
+	} else {
+		updateContentStatement := `
+			UPDATE contents
+			SET text_content=$2, updated_at=$3
+			WHERE id=$1
+			RETURNING text_content, updated_at
+		`
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		row := m.DB.QueryRowContext(
+			ctx, updateContentStatement,
+			chapter.Content.ID,
+			textContent,
+			pq.FormatTimestamp(time.Now().UTC()),
+		)
+		return row.Scan(&chapter.Content.TextContent, &chapter.Content.UpdatedAt)
+	}
 }

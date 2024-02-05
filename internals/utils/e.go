@@ -10,4 +10,5 @@ var (
 	ErrorInvalidRouteParam  = errors.New("invalid route parameters")
 	ErrorForbiddenResource  = errors.New("permissions required to access this resource(s)")
 	ErrorInvalidQueryParams = errors.New("invalid route query")
+	ErrorInvalidModel       = errors.New("invalid model object")
 )

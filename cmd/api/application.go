@@ -6,6 +6,7 @@ import (
 	"gin_stuff/internals/database"
 	"gin_stuff/internals/models"
 	router "gin_stuff/internals/routers"
+	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"log"
 	"strings"
@@ -119,6 +120,19 @@ func NewApplication() *Application {
 	r := router.NewRouter(&app.Models)
 	app.RegisterRoute(r)
 
+	// mailer
+	mailer, err := services.NewMailerService(services.MailerSMTPConfig{
+		Host:     app.Config.GetString("mailer.host"),
+		Port:     app.Config.GetInt64("mailer.port"),
+		Login:    app.Config.GetString("mailer.login"),
+		Password: app.Config.GetString("mailer.password"),
+		Timeout:  app.Config.GetDuration("mailer.timeout"),
+	})
+	if err != nil {
+		utils.Logger.Warn().Err(fmt.Errorf("fail to initialize mailer: %v", err)).Send()
+	}
+	r.Mailer = mailer
+
 	return app
 }
 
@@ -139,6 +153,7 @@ func (app Application) RegisterRoute(r router.Router) {
 	jwtRequiredMiddleware := middlewares.NewJwtMiddleware()
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
+	api.POST("/test-mail", r.SendTestMail)
 
 	// Authentication group
 	auth := api.Group("/auth")
@@ -146,17 +161,19 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-up", r.Register)
 
 	//book group
-	bookAPI := api.Group("/book", jwtRequiredMiddleware)
+	bookAPI := api.Group("/book")
 	bookAPI.GET("", r.FindBooks)
 	bookAPI.GET("/:id", r.GetBook)
-	bookAPI.POST("", r.CreateBook)
-	bookAPI.PATCH("/:id", r.UpdateBook)
-	bookAPI.DELETE("/:id", r.DeleteBook)
+	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware)
+	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware)
+	bookAPI.DELETE("/:id", r.DeleteBook, jwtRequiredMiddleware)
 
 	// chapter API
-	chapterAPI := api.Group("/book/:bookId/chapter")
+	chapterAPI := bookAPI.Group("/:bookId/chapter")
 	chapterAPI.GET("", r.FindChapters)
 	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware)
 	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, jwtRequiredMiddleware)
 	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, jwtRequiredMiddleware)
+	chapterAPI.GET("/:chapterNo/content", r.GetChapterContent)
+	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, jwtRequiredMiddleware)
 }
