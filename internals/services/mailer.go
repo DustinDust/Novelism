@@ -50,6 +50,7 @@ func NewMailerService(config MailerSMTPConfig) (*MailerService, error) {
 	return mailer, nil
 }
 
+// send mail
 func (m MailerService) Perform(input *Mail) error {
 	message := mail.NewMsg()
 	err := message.From(input.From)

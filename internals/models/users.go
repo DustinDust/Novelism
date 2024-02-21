@@ -38,7 +38,7 @@ type UserModel struct {
 func (m UserModel) Insert(user *User) error {
 	statement := `
 		INSERT INTO users (username, password_hash, email, status)
-		VALUES ($1, $2, $3, &4)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at;
 	`
 	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Status}

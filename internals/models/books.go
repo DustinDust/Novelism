@@ -35,7 +35,6 @@ type BookModel struct {
 	DB *sqlx.DB
 }
 
-// unusable right now
 // find all book of 1 user
 // might want to make something more usecase-specific instead of this one giant, error prone api
 func (m BookModel) Find(userId int, title string, filter Filter) ([]*Book, Metadata, error) {

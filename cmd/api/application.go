@@ -118,7 +118,6 @@ func NewApplication() *Application {
 
 	// router
 	r := router.NewRouter(&app.Models)
-	app.RegisterRoute(r)
 
 	// mailer
 	mailer, err := services.NewMailerService(services.MailerSMTPConfig{
@@ -132,6 +131,8 @@ func NewApplication() *Application {
 		utils.Logger.Warn().Err(fmt.Errorf("fail to initialize mailer: %v", err)).Send()
 	}
 	r.Mailer = mailer
+
+	app.RegisterRoute(r)
 
 	return app
 }
@@ -162,7 +163,7 @@ func (app Application) RegisterRoute(r router.Router) {
 
 	//book group
 	bookAPI := api.Group("/book")
-	bookAPI.GET("", r.FindBooks)
+	bookAPI.GET("", r.FindBooks, jwtRequiredMiddleware)
 	bookAPI.GET("/:id", r.GetBook)
 	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware)
 	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware)

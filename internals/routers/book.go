@@ -173,7 +173,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 func (r Router) FindBooks(c echo.Context) error {
 	currentUserId, err := utils.RetreiveUserIdFromContext(c)
 	if err != nil {
-		r.unauthorizedError(err)
+		return r.unauthorizedError(err)
 	}
 	filter := models.Filter{
 		Page:         1,

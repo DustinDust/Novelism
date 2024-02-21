@@ -61,10 +61,12 @@ func (r Router) SendTestMail(c echo.Context) error {
 		utils.Logger.Error().AnErr("mail_err", err)
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, nil)
+	return c.JSON(http.StatusOK, echo.Map{
+		"ok": true,
+	})
 }
 
-// reutrn echo http error status 500
+// reutrn http error status 500
 func (r Router) serverError(err error) error {
 	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }
