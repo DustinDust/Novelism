@@ -14,13 +14,15 @@ import (
 
 // user models
 type User struct {
-	ID           int64      `db:"id" json:"id"`
-	Username     string     `db:"username" json:"username"`
-	PasswordHash string     `db:"password_hash" json:"-"`
-	Email        string     `db:"email" json:"email"`
-	Status       string     `db:"status" json:"-"`
-	CreatedAt    *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    *time.Time `db:"updated_at" json:"updated_at"`
+	ID                int64      `db:"id" json:"id"`
+	Username          string     `db:"username" json:"username"`
+	PasswordHash      string     `db:"password_hash" json:"-"`
+	Email             string     `db:"email" json:"email"`
+	Status            string     `db:"status" json:"-"`
+	Verified          bool       `db:"verified" json:"verified"`
+	VerificationToken string     `db:"verification_token" json:"-"`
+	CreatedAt         *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt         *time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type UserRepository interface {
@@ -88,6 +90,9 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 			return nil, err
 		}
 	}
+	if !user.Verified {
+		return nil, utils.ErrorUnverfiedUser
+	}
 	match, err := user.MatchPassword(plaintextPassword)
 	if err != nil {
 		return nil, err
@@ -135,7 +140,7 @@ func (m UserModel) Delete(id int64) error {
 }
 
 func (u *User) SetPassword(plaintextPassword string) error {
-	hash, err := utils.Hash(plaintextPassword)
+	hash, err := utils.Crypto.Hash(plaintextPassword)
 	if err != nil {
 		return err
 	}
@@ -144,7 +149,7 @@ func (u *User) SetPassword(plaintextPassword string) error {
 }
 
 func (u *User) MatchPassword(plaintextPassword string) (bool, error) {
-	err := utils.Match(plaintextPassword, u.PasswordHash)
+	err := utils.Crypto.Match(plaintextPassword, u.PasswordHash)
 	if err != nil {
 		switch {
 		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):

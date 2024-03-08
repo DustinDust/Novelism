@@ -45,7 +45,7 @@ func (r Router) CreateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -166,7 +166,7 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -219,7 +219,7 @@ func (r Router) DeleteChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -274,7 +274,7 @@ func (r Router) UpdateChapterContent(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}

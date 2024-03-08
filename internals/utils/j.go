@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -9,14 +10,25 @@ import (
 	"github.com/spf13/viper"
 )
 
+type JWTUtils struct{}
+
 type JwtClaims struct {
 	Claims interface{} `json:"claims"`
 	jwt.RegisteredClaims
 }
 
-func SignToken(claims interface{}) (string, error) {
+type JwtSignOption struct {
+	ExpirationDuration time.Duration
+}
+
+func (j JWTUtils) SignToken(claims interface{}, option *JwtSignOption) (string, error) {
 	secret := viper.GetViper().GetString("jwt.secret")
-	expirationDuration := viper.GetDuration("jwt.duration")
+	var expirationDuration time.Duration
+	if option == nil || option.ExpirationDuration == 0 {
+		expirationDuration = viper.GetViper().GetDuration("jwt.duration")
+	} else {
+		expirationDuration = option.ExpirationDuration
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, JwtClaims{
 		Claims: claims,
@@ -28,7 +40,7 @@ func SignToken(claims interface{}) (string, error) {
 	return signed, err
 }
 
-func RetreiveUserIdFromContext(c echo.Context) (int, error) {
+func (j JWTUtils) RetreiveUserIdFromContext(c echo.Context) (int, error) {
 	userId, ok := c.Get("user").(int)
 	if !ok {
 		return -1, errors.New("invalid server context")
@@ -36,3 +48,20 @@ func RetreiveUserIdFromContext(c echo.Context) (int, error) {
 
 	return userId, nil
 }
+
+func (j JWTUtils) VerifyToken(tokenString string) (jwt.MapClaims, error) {
+
+	token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return viper.GetViper().GetString("jwt.secret"), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	return token.Claims.(jwt.MapClaims), nil
+}
+
+var JWT = JWTUtils{}

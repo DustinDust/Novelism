@@ -152,6 +152,7 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
 	jwtRequiredMiddleware := middlewares.NewJwtMiddleware()
+	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Model.User)
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
 	api.POST("/test-mail", r.SendTestMail)
@@ -160,12 +161,13 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth := api.Group("/auth")
 	auth.POST("/sign-in", r.Login)
 	auth.POST("/sign-up", r.Register)
+	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, jwtRequiredMiddleware)
 
 	//book group
 	bookAPI := api.Group("/book")
 	bookAPI.GET("", r.FindBooks, jwtRequiredMiddleware)
 	bookAPI.GET("/:id", r.GetBook)
-	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware)
+	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
 	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware)
 	bookAPI.DELETE("/:id", r.DeleteBook, jwtRequiredMiddleware)
 

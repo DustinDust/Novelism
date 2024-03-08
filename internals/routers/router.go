@@ -23,7 +23,7 @@ func NewRouter(model *models.Models) Router {
 
 func (r Router) GetConfig(c echo.Context) error {
 	key := c.Param("key")
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

@@ -1,0 +1,3 @@
+ALTER TABLE users
+ADD COLUMN verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN verification_token VARCHAR(255);

@@ -33,7 +33,7 @@ func (r Router) CreateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -65,7 +65,7 @@ func (r Router) GetBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -109,7 +109,7 @@ func (r Router) UpdateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -147,7 +147,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.RetreiveUserIdFromContext(c)
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -171,7 +171,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 }
 
 func (r Router) FindBooks(c echo.Context) error {
-	currentUserId, err := utils.RetreiveUserIdFromContext(c)
+	currentUserId, err := utils.JWT.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
