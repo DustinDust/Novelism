@@ -27,7 +27,7 @@ func (r Router) Login(c echo.Context) error {
 	validate := utils.NewValidator()
 	loginPayload := new(LoginPayload)
 	if err := c.Bind(loginPayload); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return r.badRequestError(err)
 	}
 	if err := validate.ValidateStruct(loginPayload); err != nil {
 		if verr, ok := err.(*utils.StructValidationErrors); ok {
@@ -39,9 +39,9 @@ func (r Router) Login(c echo.Context) error {
 	user, err := r.Model.User.Login(loginPayload.Username, loginPayload.PlaintextPassword)
 	if err != nil {
 		if errors.Is(err, utils.ErrorInvalidCredentials) {
-			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+			return r.unauthorizedError(err)
 		} else {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return r.serverError(err)
 		}
 	}
 	accessToken, err := utils.JWT.SignToken(user.ID, nil)
@@ -67,8 +67,12 @@ func (r Router) VerifyEmail(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
+	if user.Verified || user.Status != "active" {
+		return r.badRequestError(fmt.Errorf("invalid user status"))
+	}
 	if user.VerificationToken == payload.Token {
 		user.VerificationToken = ""
+		user.Verified = true
 		err := r.Model.User.Update(user)
 		if err != nil {
 			return r.serverError(err)
@@ -88,6 +92,9 @@ func (r Router) ResendVerificationEmail(c echo.Context) error {
 	user, err := r.Model.User.Get(int64(userId))
 	if err != nil {
 		return r.unauthorizedError(err)
+	}
+	if user.Verified {
+		return r.badRequestError(fmt.Errorf("user is already verified"))
 	}
 	verificationToken := utils.Crypto.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
@@ -124,27 +131,23 @@ func (r Router) Register(c echo.Context) error {
 		Username: registerPayload.Username,
 		Email:    registerPayload.Email,
 		Status:   "active",
+		Verified: false,
 	}
 	if err := user.SetPassword(registerPayload.PlaintextPassword); err != nil {
 		return r.serverError(err)
 	}
-	if err := r.Model.User.Insert(user); err != nil {
-		return r.badRequestError(err)
-	}
 
 	verificationToken := utils.Crypto.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
-	err := r.Model.User.Update(user)
-	if err != nil {
-		return r.serverError(err)
+	if err := r.Model.User.Insert(user); err != nil {
+		return r.badRequestError(err)
 	}
-	err = r.Mailer.Perform(&services.Mail{
+	if err := r.Mailer.Perform(&services.Mail{
 		From:    "no-reply@novelism.com",
 		To:      user.Email,
 		Subject: "Welcome to novelism! Please verify your email",
 		Content: fmt.Sprintf("https://frontent-link/verify-email?token=%s&user_id=%d", user.VerificationToken, user.ID),
-	})
-	if err != nil {
+	}); err != nil {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusCreated, echo.Map{"ok": true})

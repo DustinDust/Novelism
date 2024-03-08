@@ -23,7 +23,7 @@ func NewUserVerificationRequireMiddleware(model models.UserRepository) echo.Midd
 				return utils.ErrorUnauthorized
 			}
 			if !user.Verified {
-				return utils.ErrorForbiddenResource
+				return echo.NewHTTPError(utils.ErrorForbiddenResource.Code, utils.ErrorForbiddenResource)
 			}
 			return next(c)
 		}

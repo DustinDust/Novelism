@@ -39,11 +39,11 @@ type UserModel struct {
 
 func (m UserModel) Insert(user *User) error {
 	statement := `
-		INSERT INTO users (username, password_hash, email, status)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO users (username, password_hash, email, verified, verification_token, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at;
 	`
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Status}
+	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Verified, user.VerificationToken, user.Status}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
@@ -56,13 +56,28 @@ func (m UserModel) Get(id int64) (*User, error) {
 		return nil, utils.ErrorRecordsNotFound
 	}
 
-	statement := "SELECT id, username, password_hash, email, created_at FROM users WHERE id=$1"
+	statement := `
+		SELECT 
+			id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at 
+		FROM users 
+		WHERE id=$1
+	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	row := m.DB.QueryRowContext(ctx, statement, id)
-	user := new(User)
-	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Email, &user.CreatedAt)
+	user := User{}
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.PasswordHash,
+		&user.Email,
+		&user.Verified,
+		&user.VerificationToken,
+		&user.Status,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -71,7 +86,7 @@ func (m UserModel) Get(id int64) (*User, error) {
 			return nil, err
 		}
 	}
-	return user, nil
+	return &user, nil
 }
 
 func (m UserModel) Login(username string, plaintextPassword string) (*User, error) {
@@ -90,9 +105,6 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 			return nil, err
 		}
 	}
-	if !user.Verified {
-		return nil, utils.ErrorUnverfiedUser
-	}
 	match, err := user.MatchPassword(plaintextPassword)
 	if err != nil {
 		return nil, err
@@ -106,15 +118,15 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 func (m UserModel) Update(user *User) error {
 	statement := `
 		UPDATE users
-		SET username=$1, password_hash=$2, email=$3, status=$4, updated_at=$5
-		WHERE id=$5
-		RETURNING username, password_hash, email, status, updated_at
+		SET username=$1, password_hash=$2, email=$3, verified=$4, verification_token=$5, status=$6, updated_at=$7
+		WHERE id=$8
+		RETURNING username, password_hash, email, verified, verification_token, status, updated_at
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Status, pq.FormatTimestamp(time.Now().UTC())}
+	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Verified, user.VerificationToken, user.Status, pq.FormatTimestamp(time.Now().UTC()), user.ID}
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
-	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.UpdatedAt)
+	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Verified, &user.VerificationToken, &user.Status, &user.UpdatedAt)
 }
 
 func (m UserModel) Delete(id int64) error {

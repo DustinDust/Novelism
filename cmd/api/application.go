@@ -161,6 +161,7 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth := api.Group("/auth")
 	auth.POST("/sign-in", r.Login)
 	auth.POST("/sign-up", r.Register)
+	auth.POST("/verify-email", r.VerifyEmail)
 	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, jwtRequiredMiddleware)
 
 	//book group
@@ -168,15 +169,15 @@ func (app Application) RegisterRoute(r router.Router) {
 	bookAPI.GET("", r.FindBooks, jwtRequiredMiddleware)
 	bookAPI.GET("/:id", r.GetBook)
 	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
-	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware)
-	bookAPI.DELETE("/:id", r.DeleteBook, jwtRequiredMiddleware)
+	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	bookAPI.DELETE("/:id", r.DeleteBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
 
 	// chapter API
 	chapterAPI := bookAPI.Group("/:bookId/chapter")
 	chapterAPI.GET("", r.FindChapters)
-	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware)
-	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, jwtRequiredMiddleware)
-	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, jwtRequiredMiddleware)
-	chapterAPI.GET("/:chapterNo/content", r.GetChapterContent)
-	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, jwtRequiredMiddleware)
+	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.GET("/:chapterNo/content", r.GetChapterContent, requiredUserVerifiedMiddleware)
+	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
 }
