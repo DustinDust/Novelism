@@ -22,7 +22,7 @@ go.work
 
 bin/*
 migrate
-config/development.*.toml
-config/staging.*.toml
-config/production.*.toml
-config/test.*.toml
+config/config.development.toml
+config/config.staging.toml
+config/config.production.toml
+config/config.test.toml

@@ -1,4 +1,4 @@
-## This is a development config file. 
+## This is a development config file.
 # Production config file should be hidden & added to .gitignore
 
 [general]
@@ -16,4 +16,11 @@ max_idle_time = "15m"
 
 [jwt]
 secret = ""
-duration = "15m"
+duration = "48h"
+
+[mailer]
+host = "smtp-relay.brevo.com"
+port = 587
+login = ""
+password = ""
+timeout = ""
