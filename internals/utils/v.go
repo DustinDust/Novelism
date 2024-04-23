@@ -104,6 +104,6 @@ func (ve *StructValidationErrors) TranslateError() error {
 	}
 	return echo.NewHTTPError(http.StatusBadRequest, echo.Map{
 		"message": errMessage,
-		"error":   errData,
+		"errors":  errData,
 	})
 }

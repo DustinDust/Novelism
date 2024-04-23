@@ -22,6 +22,16 @@ type RegisterPayload struct {
 	Email             string `json:"email" validate:"required,email"`
 }
 
+type ForgetPasswordPayload struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type ResetPasswordPayload struct {
+	UserId      int    `json:"userId" validate:"required,min=1"`
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"password" validate:"required,min=6,max=20,strongPassword"`
+}
+
 // Handler
 func (r Router) Login(c echo.Context) error {
 	validate := utils.NewValidator()
@@ -48,7 +58,10 @@ func (r Router) Login(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, echo.Map{"accessToken": accessToken})
+	return c.JSON(http.StatusOK, echo.Map{
+		"user":        user,
+		"accessToken": accessToken,
+	})
 }
 
 func (r Router) VerifyEmail(c echo.Context) error {
@@ -146,9 +159,81 @@ func (r Router) Register(c echo.Context) error {
 		From:    "no-reply@novelism.com",
 		To:      user.Email,
 		Subject: "Welcome to novelism! Please verify your email",
-		Content: fmt.Sprintf("https://frontent-link/verify-email?token=%s&user_id=%d", user.VerificationToken, user.ID),
+		Content: fmt.Sprintf("https://frontend-link/verify-email?token=%s&user_id=%d", user.VerificationToken, user.ID),
 	}); err != nil {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusCreated, echo.Map{"ok": true})
+}
+
+// TODO: add update verification token to password reset token
+func (r Router) ForgetPassword(c echo.Context) error {
+	validate := utils.NewValidator()
+	payload := new(ForgetPasswordPayload)
+	if err := c.Bind(payload); err != nil {
+		return r.badRequestError(err)
+	}
+	if err := validate.ValidateStruct(payload); err != nil {
+		return r.badRequestError(err)
+	}
+	user, err := r.Model.User.GetByEmail(payload.Email, "active")
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	passwordResetToken := utils.Crypto.GenerateSecureToken(32)
+	user.PasswordResetToken = passwordResetToken
+	if err := r.Model.User.Update(user); err != nil {
+		return r.serverError(err)
+	}
+
+	if err := r.Mailer.Perform(&services.Mail{
+		From:    "no-reply@novelism.com",
+		To:      user.Email,
+		Subject: "Please reset your password",
+		Content: fmt.Sprintf("https://frontend-link/reset-password?token=%s&user_id=%d", user.PasswordResetToken, user.ID),
+	}); err != nil {
+		return r.serverError(err)
+	}
+	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+}
+
+func (r Router) ResetPassword(c echo.Context) error {
+	validate := utils.NewValidator()
+	payload := new(ResetPasswordPayload)
+	if err := c.Bind(payload); err != nil {
+		return r.badRequestError(err)
+	}
+	if err := validate.ValidateStruct(payload); err != nil {
+		return r.badRequestError(err)
+	}
+	user, err := r.Model.User.Get(int64(payload.UserId))
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	if payload.Token != user.PasswordResetToken {
+		return r.unauthorizedError(utils.NewError("invalid error", 403, nil))
+	}
+	if err := user.SetPassword(payload.NewPassword); err != nil {
+
+		return r.serverError(err)
+	}
+	if err := r.Model.User.Update(user); err != nil {
+		return r.serverError(err)
+	}
+	return c.JSON(200, echo.Map{"ok": true})
+}
+
+func (r Router) Me(c echo.Context) error {
+	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	if err != nil {
+		return r.unauthorizedError(err)
+	}
+	user, err := r.Model.User.Get(int64(userId))
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	return c.JSON(200, echo.Map{
+		"ok":   true,
+		"data": user,
+	})
 }

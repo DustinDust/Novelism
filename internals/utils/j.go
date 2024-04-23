@@ -21,7 +21,12 @@ type JwtSignOption struct {
 	ExpirationDuration time.Duration
 }
 
-func (j JWTUtils) SignToken(claims interface{}, option *JwtSignOption) (string, error) {
+type SignedJwtResult struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+func (j JWTUtils) SignToken(claims interface{}, option *JwtSignOption) (SignedJwtResult, error) {
 	secret := viper.GetViper().GetString("jwt.secret")
 	var expirationDuration time.Duration
 	if option == nil || option.ExpirationDuration == 0 {
@@ -37,7 +42,10 @@ func (j JWTUtils) SignToken(claims interface{}, option *JwtSignOption) (string, 
 		},
 	})
 	signed, err := token.SignedString([]byte(secret))
-	return signed, err
+	return SignedJwtResult{
+		Token:     signed,
+		ExpiresAt: time.Now().Add(expirationDuration),
+	}, err
 }
 
 func (j JWTUtils) RetreiveUserIdFromContext(c echo.Context) (int, error) {

@@ -42,7 +42,8 @@ run.task:
 # Define variable for filtering images
 IMAGE_FILTER := "novelism"
 
-# Target to clean images with 'example-app' in name
+# Target to clean images with 'novelism' in name
+# Currently not working
 clean.images:
   # Get a list of images matching the filter
   IMG := $$(docker images --format '{{.Repository}}:{{.Tag}}' | grep $(IMAGE_FILTER))

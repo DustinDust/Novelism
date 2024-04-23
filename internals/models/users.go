@@ -14,15 +14,16 @@ import (
 
 // user models
 type User struct {
-	ID                int64      `db:"id" json:"id"`
-	Username          string     `db:"username" json:"username"`
-	PasswordHash      string     `db:"password_hash" json:"-"`
-	Email             string     `db:"email" json:"email"`
-	Status            string     `db:"status" json:"-"`
-	Verified          bool       `db:"verified" json:"verified"`
-	VerificationToken string     `db:"verification_token" json:"-"`
-	CreatedAt         *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt         *time.Time `db:"updated_at" json:"updated_at"`
+	ID                 int64      `db:"id" json:"id"`
+	Username           string     `db:"username" json:"username"`
+	PasswordHash       string     `db:"password_hash" json:"-"`
+	Email              string     `db:"email" json:"email"`
+	Status             string     `db:"status" json:"status"`
+	Verified           bool       `db:"verified" json:"verified"`
+	VerificationToken  string     `db:"verification_token" json:"-"`
+	PasswordResetToken string     `db:"password_reset_token" json:"-"`
+	CreatedAt          *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt          *time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type UserRepository interface {
@@ -31,6 +32,7 @@ type UserRepository interface {
 	Update(user *User) error
 	Delete(id int64) error
 	Login(username string, plaintextPassword string) (*User, error)
+	GetByEmail(string, string) (*User, error)
 }
 
 type UserModel struct {
@@ -57,16 +59,16 @@ func (m UserModel) Get(id int64) (*User, error) {
 	}
 
 	statement := `
-		SELECT 
-			id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at 
-		FROM users 
+		SELECT
+			id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at
+		FROM users
 		WHERE id=$1
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	row := m.DB.QueryRowContext(ctx, statement, id)
-	user := User{}
+	user := new(User)
 	err := row.Scan(
 		&user.ID,
 		&user.Username,
@@ -86,17 +88,17 @@ func (m UserModel) Get(id int64) (*User, error) {
 			return nil, err
 		}
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (m UserModel) Login(username string, plaintextPassword string) (*User, error) {
-	statement := "SELECT id, username, password_hash, email FROM users WHERE username=$1 AND status != 'deleted'"
+	statement := "SELECT id, username, password_hash, email, verified, status FROM users WHERE username=$1 AND status != 'deleted'"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	row := m.DB.QueryRowContext(ctx, statement, username)
 	user := new(User)
-	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Email)
+	err := row.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Email, &user.Verified, &user.Status)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -149,6 +151,40 @@ func (m UserModel) Delete(id int64) error {
 		return utils.ErrorRecordsNotFound
 	}
 	return nil
+}
+
+func (m UserModel) GetByEmail(email string, status string) (*User, error) {
+	if !utils.IsItemInCollection[string](status, UserStatuses) {
+		return nil, utils.NewError("invalid user status", 400, nil)
+	}
+	statement := `SELECT
+		id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at
+	FROM users
+	WHERE email = $1 AND status = $2 LIMIT 1`
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	row := m.DB.QueryRowContext(ctx, statement, email, status)
+	user := new(User)
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.PasswordHash,
+		&user.Email,
+		&user.Verified,
+		&user.VerificationToken,
+		&user.Status,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, utils.ErrorRecordsNotFound
+		default:
+			return nil, err
+		}
+	}
+	return user, nil
 }
 
 func (u *User) SetPassword(plaintextPassword string) error {

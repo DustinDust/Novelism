@@ -163,6 +163,9 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-up", r.Register)
 	auth.POST("/verify-email", r.VerifyEmail)
 	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, jwtRequiredMiddleware)
+	auth.POST("/forget-password", r.ForgetPassword)
+	auth.POST("/reset-password", r.ResetPassword)
+	auth.GET("/me", r.Me, jwtRequiredMiddleware)
 
 	//book group
 	bookAPI := api.Group("/book")
