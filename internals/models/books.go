@@ -18,9 +18,9 @@ type Book struct {
 	User        *User      `json:"-"`
 	Title       string     `db:"title" json:"title"`
 	Description string     `db:"description" json:"description"`
-	CreatedAt   *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time `db:"updated_at" json:"updated_at"`
-	DeletedAt   *time.Time `db:"deleted_at" json:"deleted_at"`
+	CreatedAt   *time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt   *time.Time `db:"updated_at" json:"updatedAt"`
+	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
 type BookRepository interface {

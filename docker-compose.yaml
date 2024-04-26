@@ -12,10 +12,18 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - postgres
+      - novelism-network
+
+  # api:
+  #   container_name: novelism-api
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile
+  #   networks:
+  #     - novelism-network
 
 networks:
-  postgres:
+  novelism-network:
     driver: bridge
 
 volumes:

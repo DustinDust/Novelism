@@ -8,6 +8,10 @@ import (
 )
 
 func LoadConfig() (*viper.Viper, error) {
+	configDir, found := os.LookupEnv("CONFIG_DIR")
+	if !found {
+		configDir = "./config"
+	}
 	// set up environment
 	env, found := os.LookupEnv("ENV")
 	if !found {
@@ -15,7 +19,7 @@ func LoadConfig() (*viper.Viper, error) {
 	}
 	viper.SetConfigName(fmt.Sprintf("config.%s.toml", env))
 	viper.SetConfigType("toml")
-	viper.AddConfigPath("./config")
+	viper.AddConfigPath(configDir)
 	err := viper.ReadInConfig()
 	if err != nil {
 		return nil, err

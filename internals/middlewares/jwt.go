@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func NewJwtMiddleware() echo.MiddlewareFunc {
+func NewAccessTokenMiddleware() echo.MiddlewareFunc {
 	jwtSecret := viper.GetViper().GetString("jwt.secret")
 
 	return echojwt.WithConfig(echojwt.Config{

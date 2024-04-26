@@ -32,6 +32,11 @@ type ResetPasswordPayload struct {
 	NewPassword string `json:"password" validate:"required,min=6,max=20,strongPassword"`
 }
 
+type LoginResponseData struct {
+	AccessToken  services.SignedJwtResult `json:"accessToken"`
+	RefreshToken services.SignedJwtResult `json:"refreshToken,omitempty"`
+}
+
 // Handler
 func (r Router) Login(c echo.Context) error {
 	validate := utils.NewValidator()
@@ -54,13 +59,15 @@ func (r Router) Login(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	accessToken, err := utils.JWT.SignToken(user.ID, nil)
+	accessToken, err := r.JwtService.SignAccessToken(user.ID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"user":        user,
-		"accessToken": accessToken,
+	return c.JSON(http.StatusOK, Response[LoginResponseData]{
+		OK: true,
+		Data: LoginResponseData{
+			AccessToken: accessToken,
+		},
 	})
 }
 
@@ -90,15 +97,15 @@ func (r Router) VerifyEmail(c echo.Context) error {
 		if err != nil {
 			return r.serverError(err)
 		}
-		return c.JSON(http.StatusOK, echo.Map{
-			"ok": true,
+		return c.JSON(http.StatusOK, Response[any]{
+			OK: true,
 		})
 	}
 	return r.unauthorizedError(utils.ErrorInvalidToken)
 }
 
 func (r Router) ResendVerificationEmail(c echo.Context) error {
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -114,7 +121,7 @@ func (r Router) ResendVerificationEmail(c echo.Context) error {
 	if err := r.Model.User.Update(user); err != nil {
 		return r.serverError(err)
 	}
-	if err := r.Mailer.Perform(&services.Mail{
+	if err := r.MailerService.Perform(&services.Mail{
 		From:    "no-reply@novelism.com",
 		To:      user.Email,
 		Subject: "Please verify your email!",
@@ -122,8 +129,8 @@ func (r Router) ResendVerificationEmail(c echo.Context) error {
 	}); err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok": true,
+	return c.JSON(http.StatusOK, Response[any]{
+		OK: true,
 	})
 }
 
@@ -155,7 +162,7 @@ func (r Router) Register(c echo.Context) error {
 	if err := r.Model.User.Insert(user); err != nil {
 		return r.badRequestError(err)
 	}
-	if err := r.Mailer.Perform(&services.Mail{
+	if err := r.MailerService.Perform(&services.Mail{
 		From:    "no-reply@novelism.com",
 		To:      user.Email,
 		Subject: "Welcome to novelism! Please verify your email",
@@ -163,10 +170,11 @@ func (r Router) Register(c echo.Context) error {
 	}); err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusCreated, echo.Map{"ok": true})
+	return c.JSON(http.StatusCreated, Response[any]{
+		OK: true,
+	})
 }
 
-// TODO: add update verification token to password reset token
 func (r Router) ForgetPassword(c echo.Context) error {
 	validate := utils.NewValidator()
 	payload := new(ForgetPasswordPayload)
@@ -186,7 +194,7 @@ func (r Router) ForgetPassword(c echo.Context) error {
 		return r.serverError(err)
 	}
 
-	if err := r.Mailer.Perform(&services.Mail{
+	if err := r.MailerService.Perform(&services.Mail{
 		From:    "no-reply@novelism.com",
 		To:      user.Email,
 		Subject: "Please reset your password",
@@ -194,7 +202,9 @@ func (r Router) ForgetPassword(c echo.Context) error {
 	}); err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+	return c.JSON(http.StatusOK, Response[any]{
+		OK: true,
+	})
 }
 
 func (r Router) ResetPassword(c echo.Context) error {
@@ -220,11 +230,13 @@ func (r Router) ResetPassword(c echo.Context) error {
 	if err := r.Model.User.Update(user); err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(200, echo.Map{"ok": true})
+	return c.JSON(200, Response[any]{
+		OK: true,
+	})
 }
 
 func (r Router) Me(c echo.Context) error {
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -232,8 +244,8 @@ func (r Router) Me(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	return c.JSON(200, echo.Map{
-		"ok":   true,
-		"data": user,
+	return c.JSON(200, Response[models.User]{
+		OK:   true,
+		Data: *user,
 	})
 }

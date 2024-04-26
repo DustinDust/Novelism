@@ -14,16 +14,18 @@ import (
 
 // user models
 type User struct {
-	ID                 int64      `db:"id" json:"id"`
-	Username           string     `db:"username" json:"username"`
-	PasswordHash       string     `db:"password_hash" json:"-"`
-	Email              string     `db:"email" json:"email"`
-	Status             string     `db:"status" json:"status"`
-	Verified           bool       `db:"verified" json:"verified"`
-	VerificationToken  string     `db:"verification_token" json:"-"`
-	PasswordResetToken string     `db:"password_reset_token" json:"-"`
-	CreatedAt          *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt          *time.Time `db:"updated_at" json:"updated_at"`
+	ID                     int64      `db:"id" json:"id"`
+	Username               string     `db:"username" json:"username"`
+	PasswordHash           string     `db:"password_hash" json:"-"`
+	Email                  string     `db:"email" json:"email"`
+	Status                 string     `db:"status" json:"status"`
+	Verified               bool       `db:"verified" json:"verified"`
+	VerificationToken      string     `db:"verification_token" json:"-"`
+	PasswordResetToken     string     `db:"password_reset_token" json:"-"`
+	RefreshToken           string     `db:"refresh_token" json:"-"`
+	RefreshTokenValidUntil *time.Time `db:"refresh_token_valid_until" json:"-"`
+	CreatedAt              *time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt              *time.Time `db:"updated_at" json:"updatedAt"`
 }
 
 type UserRepository interface {

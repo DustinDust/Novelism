@@ -3,7 +3,7 @@ package router
 import (
 	"gin_stuff/internals/models"
 	"gin_stuff/internals/services"
-	"gin_stuff/internals/utils"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -11,19 +11,31 @@ import (
 )
 
 type Router struct {
-	Model  *models.Models
-	Mailer *services.MailerService
+	Model         *models.Models
+	MailerService *services.MailerService
+	JwtService    *services.JWTService
+	LoggerService *services.LoggerService
 }
 
-func NewRouter(model *models.Models) Router {
+func NewRouter(model *models.Models, mailerService *services.MailerService, loggerService *services.LoggerService) Router {
 	return Router{
-		Model: model,
+		Model:         model,
+		MailerService: mailerService,
+		LoggerService: loggerService,
+		JwtService:    &services.JWTService{}, // recreated since it does not initiate any object instance
 	}
 }
 
+type Response[T interface{}] struct {
+	OK       bool            `json:"ok"`
+	Data     T               `json:"data,omitempty"`
+	Metadata models.Metadata `json:"metadata,omitempty"`
+}
+
+// route handler to test runtime config
 func (r Router) GetConfig(c echo.Context) error {
 	key := c.Param("key")
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -41,6 +53,7 @@ func (r Router) GetConfig(c echo.Context) error {
 	})
 }
 
+// route handler to test email functionality
 func (r Router) SendTestMail(c echo.Context) error {
 	mailerInfo := struct {
 		To    string `json:"to"`
@@ -48,7 +61,7 @@ func (r Router) SendTestMail(c echo.Context) error {
 		Text  string `json:"text"`
 	}{}
 	if err := c.Bind(&mailerInfo); err != nil {
-		utils.Logger.Error().AnErr("binding", err).Send()
+		log.Printf("Error binding body %v", err)
 		return r.badRequestError(err)
 	}
 	mail := services.Mail{
@@ -57,8 +70,8 @@ func (r Router) SendTestMail(c echo.Context) error {
 		Subject: mailerInfo.Title,
 		Content: mailerInfo.Text,
 	}
-	if err := r.Mailer.Perform(&mail); err != nil {
-		utils.Logger.Error().AnErr("mail_err", err)
+	if err := r.MailerService.Perform(&mail); err != nil {
+		log.Println(err)
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusOK, echo.Map{
@@ -66,7 +79,7 @@ func (r Router) SendTestMail(c echo.Context) error {
 	})
 }
 
-// reutrn http error status 500
+// return http errors
 func (r Router) serverError(err error) error {
 	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }

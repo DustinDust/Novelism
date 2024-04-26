@@ -7,7 +7,6 @@ import (
 	"gin_stuff/internals/models"
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
-	"gin_stuff/internals/utils"
 	"log"
 	"strings"
 	"time"
@@ -33,8 +32,9 @@ type Application struct {
 func NewApplication() *Application {
 	// load config from file
 	config, err := config.LoadConfig()
+	loggerService := services.NewLoggerService()
 	if err != nil {
-		log.Fatalf("Failed to load config file: %s", err)
+		loggerService.LogFatal(err, "fail to load config")
 	}
 
 	// create new echo (server) instance
@@ -64,10 +64,10 @@ func NewApplication() *Application {
 				var event *zerolog.Event
 				var msg string
 				if v.Error != nil {
-					event = utils.Logger.Error()
+					event = loggerService.Logger.Error()
 					msg = "REQ_ERR"
 				} else {
-					event = utils.Logger.Info()
+					event = loggerService.Logger.Info()
 					msg = "REQ_OK"
 				}
 				event.Time("time", v.StartTime.Local())
@@ -86,7 +86,7 @@ func NewApplication() *Application {
 	))
 	app.EchoInstance.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
-			event := utils.Logger.Error()
+			event := loggerService.Logger.Error()
 			event.Time("time", time.Now())
 			event.Stack().Err(err)
 			event.Str("uri", c.Path())
@@ -117,7 +117,6 @@ func NewApplication() *Application {
 	app.Models = models.NewModels(app.DB)
 
 	// router
-	r := router.NewRouter(&app.Models)
 
 	// mailer
 	mailer, err := services.NewMailerService(services.MailerSMTPConfig{
@@ -128,9 +127,9 @@ func NewApplication() *Application {
 		Timeout:  app.Config.GetDuration("mailer.timeout"),
 	})
 	if err != nil {
-		utils.Logger.Warn().Err(fmt.Errorf("fail to initialize mailer: %v", err)).Send()
+		loggerService.LogError(err, "fail to initialize mailer service")
 	}
-	r.Mailer = mailer
+	r := router.NewRouter(&app.Models, mailer, &loggerService)
 
 	app.RegisterRoute(r)
 
@@ -151,7 +150,7 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
-	jwtRequiredMiddleware := middlewares.NewJwtMiddleware()
+	accessTokenMiddleware := middlewares.NewAccessTokenMiddleware()
 	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Model.User)
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
@@ -162,25 +161,25 @@ func (app Application) RegisterRoute(r router.Router) {
 	auth.POST("/sign-in", r.Login)
 	auth.POST("/sign-up", r.Register)
 	auth.POST("/verify-email", r.VerifyEmail)
-	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, jwtRequiredMiddleware)
+	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, accessTokenMiddleware)
 	auth.POST("/forget-password", r.ForgetPassword)
 	auth.POST("/reset-password", r.ResetPassword)
-	auth.GET("/me", r.Me, jwtRequiredMiddleware)
+	auth.GET("/me", r.Me, accessTokenMiddleware)
 
 	//book group
 	bookAPI := api.Group("/book")
-	bookAPI.GET("", r.FindBooks, jwtRequiredMiddleware)
+	bookAPI.GET("", r.FindBooks, accessTokenMiddleware)
 	bookAPI.GET("/:id", r.GetBook)
-	bookAPI.POST("", r.CreateBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
-	bookAPI.PATCH("/:id", r.UpdateBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
-	bookAPI.DELETE("/:id", r.DeleteBook, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	bookAPI.POST("", r.CreateBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	bookAPI.PATCH("/:id", r.UpdateBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	bookAPI.DELETE("/:id", r.DeleteBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 
 	// chapter API
 	chapterAPI := bookAPI.Group("/:bookId/chapter")
 	chapterAPI.GET("", r.FindChapters)
-	chapterAPI.POST("", r.CreateChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
-	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
-	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.POST("", r.CreateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 	chapterAPI.GET("/:chapterNo/content", r.GetChapterContent, requiredUserVerifiedMiddleware)
-	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, jwtRequiredMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 }

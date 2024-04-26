@@ -33,7 +33,7 @@ func (r Router) CreateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -50,9 +50,9 @@ func (r Router) CreateBook(c echo.Context) error {
 	if err := r.Model.Book.Insert(&book); err != nil {
 		return r.badRequestError(err)
 	}
-	return c.JSON(http.StatusCreated, echo.Map{
-		"ok":   true,
-		"data": book,
+	return c.JSON(http.StatusCreated, Response[models.Book]{
+		OK:   true,
+		Data: book,
 	})
 }
 
@@ -65,7 +65,7 @@ func (r Router) GetBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -109,7 +109,7 @@ func (r Router) UpdateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -135,7 +135,10 @@ func (r Router) UpdateBook(c echo.Context) error {
 	if err != nil {
 		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true, "data": book})
+	return c.JSON(http.StatusOK, Response[models.Book]{
+		OK:   true,
+		Data: *book,
+	})
 }
 
 func (r Router) DeleteBook(c echo.Context) error {
@@ -147,7 +150,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -167,11 +170,13 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+	return c.JSON(http.StatusOK, Response[any]{
+		OK: true,
+	})
 }
 
 func (r Router) FindBooks(c echo.Context) error {
-	currentUserId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	currentUserId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -218,12 +223,10 @@ func (r Router) FindBooks(c echo.Context) error {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusOK,
-		echo.Map{
-			"metadata": metadata,
-			"data": echo.Map{
-				"books": books,
-			},
-			"ok": true,
+		Response[[]*models.Book]{
+			OK:       true,
+			Metadata: metadata,
+			Data:     books,
 		},
 	)
 }

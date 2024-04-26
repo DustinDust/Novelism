@@ -1,9 +1,10 @@
 ENV ?= "development"
+CONFIG_PATH ?= "./config"
 DB_CONN ?= "postgres://postgres:123123@localhost/novelism?sslmode=disable"
 TASK ?= main.go
 
 run.local:
-	ENV=${ENV} go run ./cmd/api/
+	ENV=${ENV} CONFIG_PATH=${CONFIG_PATH} go run ./cmd/api/
 
 build.local:
 	go build -o ./bin/ ./cmd/api/

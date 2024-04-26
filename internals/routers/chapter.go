@@ -45,7 +45,7 @@ func (r Router) CreateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -82,9 +82,9 @@ func (r Router) CreateChapter(c echo.Context) error {
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusCreated, echo.Map{
-		"data": chapter,
-		"ok":   true,
+	return c.JSON(http.StatusCreated, Response[models.Chapter]{
+		OK:   true,
+		Data: chapter,
 	})
 }
 
@@ -148,12 +148,10 @@ func (r Router) FindChapters(c echo.Context) error {
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"metadata": metadata,
-		"data": echo.Map{
-			"chapters": chapters,
-		},
-		"ok": true,
+	return c.JSON(http.StatusOK, Response[[]*models.Chapter]{
+		OK:       true,
+		Metadata: metadata,
+		Data:     chapters,
 	})
 }
 
@@ -166,7 +164,7 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -204,9 +202,9 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	if err != nil {
 		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok":   true,
-		"data": chapter,
+	return c.JSON(http.StatusOK, Response[models.Chapter]{
+		OK:   true,
+		Data: *chapter,
 	})
 }
 
@@ -219,7 +217,7 @@ func (r Router) DeleteChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -235,10 +233,9 @@ func (r Router) DeleteChapter(c echo.Context) error {
 	if chapter.AuthorID != int64(userId) {
 		return r.forbiddenError(utils.ErrorForbiddenResource)
 	}
-	if err != nil {
-		return r.serverError(err)
-	}
-	return c.JSON(http.StatusOK, echo.Map{"ok": true})
+	return c.JSON(http.StatusOK, Response[any]{
+		OK: true,
+	})
 }
 
 func (r Router) GetChapterContent(c echo.Context) error {
@@ -250,10 +247,6 @@ func (r Router) GetChapterContent(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	// userId, err := utils.RetreiveUserIdFromContext(c)
-	// if err != nil {
-	// 	return r.forbiddenError(err)
-	// }
 	chapter, err := r.Model.Chapter.GetContent(int64(chapterNo), int64(bookId))
 	if err != nil {
 		switch {
@@ -263,9 +256,9 @@ func (r Router) GetChapterContent(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok":   true,
-		"data": chapter,
+	return c.JSON(http.StatusOK, Response[models.Chapter]{
+		Data: *chapter,
+		OK:   true,
 	})
 }
 
@@ -274,7 +267,7 @@ func (r Router) UpdateChapterContent(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := utils.JWT.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
@@ -300,8 +293,8 @@ func (r Router) UpdateChapterContent(c echo.Context) error {
 	if err := r.Model.Chapter.UpdateContent(chapter, payload.TextContent); err != nil {
 		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok":   true,
-		"data": chapter,
+	return c.JSON(http.StatusOK, Response[models.Chapter]{
+		OK:   true,
+		Data: *chapter,
 	})
 }
