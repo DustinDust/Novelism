@@ -1,4 +1,4 @@
-package utils
+package services
 
 import (
 	"crypto/rand"
@@ -7,9 +7,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type CryptoUtils struct{}
+type CryptoService struct{}
 
-func (c CryptoUtils) Hash(plaintext string) (string, error) {
+func NewCryptoService() CryptoService {
+	return CryptoService{}
+}
+
+func (service CryptoService) Hash(plaintext string) (string, error) {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
@@ -17,16 +21,14 @@ func (c CryptoUtils) Hash(plaintext string) (string, error) {
 	return string(hashed), nil
 }
 
-func (c CryptoUtils) Match(plaintext, hashed string) error {
+func (service CryptoService) Match(plaintext, hashed string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(plaintext))
 }
 
-func (c CryptoUtils) GenerateSecureToken(length int) string {
+func (service CryptoService) GenerateSecureToken(length int) string {
 	b := make([]byte, length)
 	if _, err := rand.Read(b); err != nil {
 		return ""
 	}
 	return hex.EncodeToString(b)
 }
-
-var Crypto = CryptoUtils{}

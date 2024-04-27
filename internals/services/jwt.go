@@ -2,7 +2,7 @@ package services
 
 import (
 	"errors"
-	"fmt"
+	"gin_stuff/internals/utils"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -44,8 +44,8 @@ func (j JWTService) signToken(claims interface{}, option *JwtSignOption) (Signed
 }
 
 func (j JWTService) SignAccessToken(claims interface{}) (SignedJwtResult, error) {
-	secret := viper.GetViper().GetString("jwt.secret")
-	expirationDuration := viper.GetViper().GetDuration("jwt.duration")
+	secret := viper.GetViper().GetString("jwt.accessSecret")
+	expirationDuration := viper.GetViper().GetDuration("jwt.accessExpirationDuration")
 
 	return j.signToken(claims, &JwtSignOption{
 		Secret:             secret,
@@ -56,7 +56,7 @@ func (j JWTService) SignAccessToken(claims interface{}) (SignedJwtResult, error)
 
 func (j JWTService) SignRefreshToken(claims interface{}) (SignedJwtResult, error) {
 	secret := viper.GetViper().GetString("jwt.refreshSecret")
-	expirationDuration := viper.GetViper().GetDuration("jwt.refreshDuration")
+	expirationDuration := viper.GetViper().GetDuration("jwt.refreshExpirationDuration")
 
 	return j.signToken(claims, &JwtSignOption{
 		Secret:             secret,
@@ -74,17 +74,25 @@ func (j JWTService) RetreiveUserIdFromContext(c echo.Context) (int, error) {
 	return userId, nil
 }
 
-func (j JWTService) VerifyAccessToken(tokenString string) (jwt.MapClaims, error) {
-
+func (j JWTService) verifyToken(tokenString string, secret string) (jwt.MapClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
-		return viper.GetViper().GetString("jwt.secret"), nil
+		return secret, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+		return nil, utils.NewError("invalid token", 401, nil)
 	}
-
 	return token.Claims.(jwt.MapClaims), nil
+}
+
+func (j JWTService) VerifyAccessToken(tokenString string) (jwt.MapClaims, error) {
+	secret := viper.GetViper().GetString("jwt.accessSecret")
+	return j.verifyToken(tokenString, secret)
+}
+
+func (j JWTService) VerifyRefreshToken(tokenString string) (jwt.MapClaims, error) {
+	secret := viper.GetViper().GetString("jwt.refreshSecret")
+	return j.verifyToken(tokenString, secret)
 }

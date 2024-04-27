@@ -61,12 +61,20 @@ func (r Router) Login(c echo.Context) error {
 	}
 	accessToken, err := r.JwtService.SignAccessToken(user.ID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return r.serverError(err)
 	}
+	refreshToken, err := r.JwtService.SignRefreshToken(user.ID)
+	if err != nil {
+		return r.serverError(err)
+	}
+	user.RefreshToken = refreshToken.Token
+	user.RefreshTokenValidUntil = &refreshToken.ExpiresAt
+	r.Model.User.Update(user)
 	return c.JSON(http.StatusOK, Response[LoginResponseData]{
 		OK: true,
 		Data: LoginResponseData{
-			AccessToken: accessToken,
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
 		},
 	})
 }
@@ -116,7 +124,8 @@ func (r Router) ResendVerificationEmail(c echo.Context) error {
 	if user.Verified {
 		return r.badRequestError(fmt.Errorf("user is already verified"))
 	}
-	verificationToken := utils.Crypto.GenerateSecureToken(32)
+	cryptoService := services.NewCryptoService()
+	verificationToken := cryptoService.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
 	if err := r.Model.User.Update(user); err != nil {
 		return r.serverError(err)
@@ -156,8 +165,8 @@ func (r Router) Register(c echo.Context) error {
 	if err := user.SetPassword(registerPayload.PlaintextPassword); err != nil {
 		return r.serverError(err)
 	}
-
-	verificationToken := utils.Crypto.GenerateSecureToken(32)
+	cryptoService := services.NewCryptoService()
+	verificationToken := cryptoService.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
 	if err := r.Model.User.Insert(user); err != nil {
 		return r.badRequestError(err)
@@ -188,7 +197,8 @@ func (r Router) ForgetPassword(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	passwordResetToken := utils.Crypto.GenerateSecureToken(32)
+	cryptoService := services.NewCryptoService()
+	passwordResetToken := cryptoService.GenerateSecureToken(32)
 	user.PasswordResetToken = passwordResetToken
 	if err := r.Model.User.Update(user); err != nil {
 		return r.serverError(err)

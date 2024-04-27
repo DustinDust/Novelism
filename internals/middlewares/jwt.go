@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -9,8 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-func NewAccessTokenMiddleware() echo.MiddlewareFunc {
-	jwtSecret := viper.GetViper().GetString("jwt.secret")
+// @param{kind}: "access" | "refresh"
+func NewJWTMiddleware(kind string) echo.MiddlewareFunc {
+	jwtSecret := viper.GetViper().GetString(fmt.Sprintf("jwt.%sSecret", kind))
 
 	return echojwt.WithConfig(echojwt.Config{
 		ContextKey:  "user",

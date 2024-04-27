@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"time"
 
@@ -62,7 +63,10 @@ func (m UserModel) Get(id int64) (*User, error) {
 
 	statement := `
 		SELECT
-			id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at
+			id, username, password_hash,
+			email, verified, COALESCE(verification_token, ''),
+			COALESCE(refresh_token, ''), refresh_token_valid_until,
+			status, created_at, updated_at
 		FROM users
 		WHERE id=$1
 	`
@@ -78,6 +82,8 @@ func (m UserModel) Get(id int64) (*User, error) {
 		&user.Email,
 		&user.Verified,
 		&user.VerificationToken,
+		&user.RefreshToken,
+		&user.RefreshTokenValidUntil,
 		&user.Status,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -190,7 +196,8 @@ func (m UserModel) GetByEmail(email string, status string) (*User, error) {
 }
 
 func (u *User) SetPassword(plaintextPassword string) error {
-	hash, err := utils.Crypto.Hash(plaintextPassword)
+	cryptoService := services.NewCryptoService()
+	hash, err := cryptoService.Hash(plaintextPassword)
 	if err != nil {
 		return err
 	}
@@ -199,7 +206,8 @@ func (u *User) SetPassword(plaintextPassword string) error {
 }
 
 func (u *User) MatchPassword(plaintextPassword string) (bool, error) {
-	err := utils.Crypto.Match(plaintextPassword, u.PasswordHash)
+	cryptoService := services.NewCryptoService()
+	err := cryptoService.Match(plaintextPassword, u.PasswordHash)
 	if err != nil {
 		switch {
 		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
