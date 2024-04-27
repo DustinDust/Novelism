@@ -44,8 +44,8 @@ func (j JWTService) signToken(claims interface{}, option *JwtSignOption) (Signed
 }
 
 func (j JWTService) SignAccessToken(claims interface{}) (SignedJwtResult, error) {
-	secret := viper.GetViper().GetString("jwt.accessSecret")
-	expirationDuration := viper.GetViper().GetDuration("jwt.accessExpirationDuration")
+	secret := viper.GetViper().GetString("jwt.access_secret")
+	expirationDuration := viper.GetViper().GetDuration("jwt.access_expiration_duration")
 
 	return j.signToken(claims, &JwtSignOption{
 		Secret:             secret,
@@ -54,9 +54,10 @@ func (j JWTService) SignAccessToken(claims interface{}) (SignedJwtResult, error)
 	})
 }
 
+// unused
 func (j JWTService) SignRefreshToken(claims interface{}) (SignedJwtResult, error) {
-	secret := viper.GetViper().GetString("jwt.refreshSecret")
-	expirationDuration := viper.GetViper().GetDuration("jwt.refreshExpirationDuration")
+	secret := viper.GetViper().GetString("jwt.refresh_secret")
+	expirationDuration := viper.GetViper().GetDuration("jwt.refresh_expiration_duration")
 
 	return j.signToken(claims, &JwtSignOption{
 		Secret:             secret,
@@ -92,6 +93,7 @@ func (j JWTService) VerifyAccessToken(tokenString string) (jwt.MapClaims, error)
 	return j.verifyToken(tokenString, secret)
 }
 
+// unused
 func (j JWTService) VerifyRefreshToken(tokenString string) (jwt.MapClaims, error) {
 	secret := viper.GetViper().GetString("jwt.refreshSecret")
 	return j.verifyToken(tokenString, secret)

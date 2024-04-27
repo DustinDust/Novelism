@@ -11,10 +11,8 @@ max_open_conns = 2
 max_idle_time = "15m"
 
 [jwt]
-secret = ""
-duration = "48h"
-refreshSecret = ""
-refreshExpirationDuration = "2w"
+access_ecret = "supersecret"
+access_expiration_duration = "48h"
 
 [mailer]
 host = "smtp-relay.brevo.com"

@@ -15,18 +15,16 @@ import (
 
 // user models
 type User struct {
-	ID                     int64      `db:"id" json:"id"`
-	Username               string     `db:"username" json:"username"`
-	PasswordHash           string     `db:"password_hash" json:"-"`
-	Email                  string     `db:"email" json:"email"`
-	Status                 string     `db:"status" json:"status"`
-	Verified               bool       `db:"verified" json:"verified"`
-	VerificationToken      string     `db:"verification_token" json:"-"`
-	PasswordResetToken     string     `db:"password_reset_token" json:"-"`
-	RefreshToken           string     `db:"refresh_token" json:"-"`
-	RefreshTokenValidUntil *time.Time `db:"refresh_token_valid_until" json:"-"`
-	CreatedAt              *time.Time `db:"created_at" json:"createdAt"`
-	UpdatedAt              *time.Time `db:"updated_at" json:"updatedAt"`
+	ID                 int64      `db:"id" json:"id"`
+	Username           string     `db:"username" json:"username"`
+	PasswordHash       string     `db:"password_hash" json:"-"`
+	Email              string     `db:"email" json:"email"`
+	Status             string     `db:"status" json:"status"`
+	Verified           bool       `db:"verified" json:"verified"`
+	VerificationToken  string     `db:"verification_token" json:"-"`
+	PasswordResetToken string     `db:"password_reset_token" json:"-"`
+	CreatedAt          *time.Time `db:"created_at" json:"createdAt"`
+	UpdatedAt          *time.Time `db:"updated_at" json:"updatedAt"`
 }
 
 type UserRepository interface {
@@ -65,7 +63,6 @@ func (m UserModel) Get(id int64) (*User, error) {
 		SELECT
 			id, username, password_hash,
 			email, verified, COALESCE(verification_token, ''),
-			COALESCE(refresh_token, ''), refresh_token_valid_until,
 			status, created_at, updated_at
 		FROM users
 		WHERE id=$1
@@ -82,8 +79,6 @@ func (m UserModel) Get(id int64) (*User, error) {
 		&user.Email,
 		&user.Verified,
 		&user.VerificationToken,
-		&user.RefreshToken,
-		&user.RefreshTokenValidUntil,
 		&user.Status,
 		&user.CreatedAt,
 		&user.UpdatedAt,
@@ -127,13 +122,22 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 
 func (m UserModel) Update(user *User) error {
 	statement := `
-		UPDATE users
-		SET username=$1, password_hash=$2, email=$3, verified=$4, verification_token=$5, status=$6, updated_at=$7
+		UPDATE users SET
+			username=$1, password_hash=$2,
+			email=$3, verified=$4,
+			verification_token=$5,
+			status=$6, updated_at=$7
 		WHERE id=$8
 		RETURNING username, password_hash, email, verified, verification_token, status, updated_at
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Verified, user.VerificationToken, user.Status, pq.FormatTimestamp(time.Now().UTC()), user.ID}
+	args := []interface{}{
+		user.Username, user.PasswordHash,
+		user.Email, user.Verified,
+		user.VerificationToken,
+		user.Status, pq.FormatTimestamp(time.Now().UTC()),
+		user.ID,
+	}
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
 	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Verified, &user.VerificationToken, &user.Status, &user.UpdatedAt)

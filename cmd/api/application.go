@@ -151,7 +151,6 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
 	accessTokenMiddleware := middlewares.NewJWTMiddleware("access")
-	// refreshTokenMiddleware := middlewares.NewJWTMiddleware("refresh")
 	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Model.User)
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")

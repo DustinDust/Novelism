@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// @param{kind}: "access" | "refresh"
+// @param{kind}: "access"
 func NewJWTMiddleware(kind string) echo.MiddlewareFunc {
-	jwtSecret := viper.GetViper().GetString(fmt.Sprintf("jwt.%sSecret", kind))
+	jwtSecret := viper.GetViper().GetString(fmt.Sprintf("jwt.%s_secret", kind))
 
 	return echojwt.WithConfig(echojwt.Config{
 		ContextKey:  "user",

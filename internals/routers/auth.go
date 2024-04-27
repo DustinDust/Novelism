@@ -33,8 +33,7 @@ type ResetPasswordPayload struct {
 }
 
 type LoginResponseData struct {
-	AccessToken  services.SignedJwtResult `json:"accessToken"`
-	RefreshToken services.SignedJwtResult `json:"refreshToken,omitempty"`
+	AccessToken services.SignedJwtResult `json:"accessToken"`
 }
 
 // Handler
@@ -63,18 +62,13 @@ func (r Router) Login(c echo.Context) error {
 	if err != nil {
 		return r.serverError(err)
 	}
-	refreshToken, err := r.JwtService.SignRefreshToken(user.ID)
 	if err != nil {
 		return r.serverError(err)
 	}
-	user.RefreshToken = refreshToken.Token
-	user.RefreshTokenValidUntil = &refreshToken.ExpiresAt
-	r.Model.User.Update(user)
 	return c.JSON(http.StatusOK, Response[LoginResponseData]{
 		OK: true,
 		Data: LoginResponseData{
-			AccessToken:  accessToken,
-			RefreshToken: refreshToken,
+			AccessToken: accessToken,
 		},
 	})
 }
