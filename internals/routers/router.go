@@ -1,10 +1,13 @@
 package router
 
 import (
+	"fmt"
 	"gin_stuff/internals/models"
 	"gin_stuff/internals/services"
+	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/spf13/viper"
@@ -22,7 +25,7 @@ func NewRouter(model *models.Models, mailerService *services.MailerService, logg
 		Model:         model,
 		MailerService: mailerService,
 		LoggerService: loggerService,
-		JwtService:    &services.JWTService{}, // recreated since it does not initiate any object instance
+		JwtService:    &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
 	}
 }
 
@@ -77,6 +80,30 @@ func (r Router) SendTestMail(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{
 		"ok": true,
 	})
+}
+
+func (r Router) FileUpload(c echo.Context) error {
+    name := c.FormValue("name")
+    file, err := c.FormFile("image")
+    if err != nil {
+        return r.serverError(err)
+    }
+    src, err := file.Open()
+    if err != nil {
+        return r.serverError(fmt.Errorf("first check: %+v", err))
+    }
+    dst, err := os.Create(fmt.Sprintf("%s-%s", name, file.Filename))
+    if err != nil {
+        return r.serverError(fmt.Errorf("second check: %+v", err))
+	}
+    defer dst.Close()
+    if _, err = io.Copy(dst, src); err != nil {
+        return r.serverError(fmt.Errorf("third check: %+v", err))
+	}
+    return c.JSON(200, Response[string]{
+    OK: true, 
+        Data: file.Filename,
+    })
 }
 
 // return http errors

@@ -19,6 +19,11 @@ type User struct {
 	Username           string     `db:"username" json:"username"`
 	PasswordHash       string     `db:"password_hash" json:"-"`
 	Email              string     `db:"email" json:"email"`
+	FirstName          string     `db:"first_name" json:"firstName"`
+	LastName           string     `db:"last_name" json:"lastName"`
+	DateOfBirth        *time.Time `dh:"date_of_birth" json:"dateOfBirth"`
+	Gender             string     `db:"gender" json:"gender"`
+	ProfilePicture     string     `db:"profile_picture" json:"profilePicture"`
 	Status             string     `db:"status" json:"status"`
 	Verified           bool       `db:"verified" json:"verified"`
 	VerificationToken  string     `db:"verification_token" json:"-"`
@@ -42,11 +47,34 @@ type UserModel struct {
 
 func (m UserModel) Insert(user *User) error {
 	statement := `
-		INSERT INTO users (username, password_hash, email, verified, verification_token, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (
+            username, 
+            password_hash, 
+            email, verified, 
+            verification_token, 
+            status,
+            first_name,
+            last_name,
+            date_of_birth,
+            gender,
+            profile_picture
+        )
+		VALUES ($1, $2, $3, $4, $5, $6, $7, &8, $9, $10, $11)
 		RETURNING id, created_at;
 	`
-	args := []interface{}{user.Username, user.PasswordHash, user.Email, user.Verified, user.VerificationToken, user.Status}
+	args := []interface{}{
+		user.Username,
+		user.PasswordHash,
+		user.Email,
+		user.Verified,
+		user.VerificationToken,
+		user.Status,
+		user.FirstName,
+		user.LastName,
+		user.DateOfBirth,
+		user.Gender,
+		user.ProfilePicture,
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	row := m.DB.QueryRowContext(ctx, statement, args...)
@@ -61,9 +89,19 @@ func (m UserModel) Get(id int64) (*User, error) {
 
 	statement := `
 		SELECT
-			id, username, password_hash,
-			email, verified, COALESCE(verification_token, ''),
-			status, created_at, updated_at
+			id,
+            username,
+            password_hash,
+			email,
+            verified, 
+            COALESCE(verification_token, ''),
+            status,
+            first_name,
+            last_name,
+            date_of_birth,
+            gender,
+            profile_picture, 
+            created_at, updated_at
 		FROM users
 		WHERE id=$1
 	`
@@ -80,6 +118,11 @@ func (m UserModel) Get(id int64) (*User, error) {
 		&user.Verified,
 		&user.VerificationToken,
 		&user.Status,
+		&user.FirstName,
+		&user.LastName,
+		&user.DateOfBirth,
+		&user.Gender,
+		&user.ProfilePicture,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -123,19 +166,35 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 func (m UserModel) Update(user *User) error {
 	statement := `
 		UPDATE users SET
-			username=$1, password_hash=$2,
-			email=$3, verified=$4,
+			username=$1,
+            password_hash=$2,
+			email=$3,
+            verified=$4,
 			verification_token=$5,
-			status=$6, updated_at=$7
-		WHERE id=$8
+			status=$6,
+            first_name=$7,
+            last_name=$8,
+            date_of_birth=9$
+            gender=$10,
+            profile_picture=$11,
+            updated_at=12$
+		WHERE id=$13
 		RETURNING username, password_hash, email, verified, verification_token, status, updated_at
 	`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	args := []interface{}{
-		user.Username, user.PasswordHash,
-		user.Email, user.Verified,
+		user.Username,
+        user.PasswordHash,
+		user.Email,
+        user.Verified,
 		user.VerificationToken,
-		user.Status, pq.FormatTimestamp(time.Now().UTC()),
+		user.Status,
+        user.FirstName,
+        user.LastName,
+        user.DateOfBirth,
+        user.Gender,
+        user.ProfilePicture,
+        pq.FormatTimestamp(time.Now().UTC()),
 		user.ID,
 	}
 	defer cancel()
@@ -166,11 +225,24 @@ func (m UserModel) Delete(id int64) error {
 }
 
 func (m UserModel) GetByEmail(email string, status string) (*User, error) {
-	if !utils.IsItemInCollection[string](status, UserStatuses) {
+	if !utils.IsItemInCollection(status, UserStatuses) {
 		return nil, utils.NewError("invalid user status", 400, nil)
 	}
 	statement := `SELECT
-		id, username, password_hash, email, verified, COALESCE(verification_token, ''), status, created_at, updated_at
+		id,
+        username,
+        password_hash,
+        email,
+        verified,
+        COALESCE(verification_token, ''),
+        status,
+        first_name,
+        last_name,
+        date_of_birth,
+        gender,
+        profile_picture,
+        created_at,
+        updated_at
 	FROM users
 	WHERE email = $1 AND status = $2 LIMIT 1`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -185,6 +257,11 @@ func (m UserModel) GetByEmail(email string, status string) (*User, error) {
 		&user.Verified,
 		&user.VerificationToken,
 		&user.Status,
+        &user.FirstName,
+        &user.LastName,
+        &user.DateOfBirth,
+        &user.Gender,
+        &user.ProfilePicture,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

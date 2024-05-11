@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -32,10 +33,24 @@ func NewValidator() *Validator {
 
 	// Custom validations
 	v.RegisterValidation("strongPassword", strongPassword)
+    v.RegisterValidation("birthday", birthday)
 
 	return &Validator{
 		Validator: v,
 	}
+}
+
+func birthday(fl validator.FieldLevel) bool {
+    birthdayString := fl.Field().String()
+    // parse iso timestamp
+    birthday, err := time.Parse(time.RFC3339, birthdayString)
+    if err != nil {
+        return false
+    }
+    if birthday.UTC().Before(time.Now().UTC()) {
+        return true
+    }
+    return false
 }
 
 func strongPassword(fl validator.FieldLevel) bool {

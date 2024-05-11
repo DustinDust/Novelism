@@ -1,0 +1,6 @@
+ALTER TABLE IF EXISTS users
+ADD COLUMN first_name VARCHAR(255),
+ADD COLUMN last_name VARCHAR(255),
+ADD COLUMN date_of_birth DATE,
+ADD COLUMN gender VARCHAR(50),
+ADD COLUMN profile_picture VARCHAR(255);

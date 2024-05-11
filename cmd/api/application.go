@@ -98,6 +98,7 @@ func NewApplication() *Application {
 	app.EchoInstance.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 	}))
+    app.EchoInstance.Static("/", "assets")
 
 	// db configuration
 	dbUri := app.Config.GetString("database.uri")
@@ -155,6 +156,7 @@ func (app Application) RegisterRoute(r router.Router) {
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
 	api.POST("/test-mail", r.SendTestMail)
+    api.POST("/test-file", r.FileUpload)
 
 	// Authentication group
 	auth := api.Group("/auth")

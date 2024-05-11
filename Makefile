@@ -3,6 +3,9 @@ CONFIG_PATH ?= "./config"
 DB_CONN ?= "postgres://postgres:123123@localhost/novelism?sslmode=disable"
 TASK ?= main.go
 
+run.dev:
+	air
+
 run.local:
 	ENV=${ENV} CONFIG_PATH=${CONFIG_PATH} go run ./cmd/api/
 

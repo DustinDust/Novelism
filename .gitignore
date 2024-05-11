@@ -26,3 +26,5 @@ config/config.development.toml
 config/config.staging.toml
 config/config.production.toml
 config/config.test.toml
+
+tmp/

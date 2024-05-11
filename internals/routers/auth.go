@@ -7,6 +7,7 @@ import (
 	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -17,9 +18,14 @@ type LoginPayload struct {
 }
 
 type RegisterPayload struct {
-	Username          string `json:"username" validate:"required,min=6"`
-	PlaintextPassword string `json:"password" validate:"required,min=6,max=20,strongPassword"`
-	Email             string `json:"email" validate:"required,email"`
+	Username          string     `json:"username" validate:"required,min=6"`
+	PlaintextPassword string     `json:"password" validate:"required,min=6,max=20,strongPassword"`
+	Email             string     `json:"email" validate:"required,email"`
+	FirstName         string     `json:"firstName" validate:"required"`
+	LastName          string     `json:"lastName" validate:"required"`
+	DateOfBirth       *time.Time `json:"dateOfBirth" validate:"birthday"`
+	Gender            string     `json:"string" validate:"required"`
+    ProfilePicture    string     `json:"profilePicture" validate:"required,url"`
 }
 
 type ForgetPasswordPayload struct {
@@ -153,6 +159,11 @@ func (r Router) Register(c echo.Context) error {
 	user := &models.User{
 		Username: registerPayload.Username,
 		Email:    registerPayload.Email,
+        FirstName: registerPayload.FirstName,
+        LastName: registerPayload.LastName,
+        DateOfBirth: registerPayload.DateOfBirth,
+        Gender: registerPayload.Gender,
+        ProfilePicture: registerPayload.ProfilePicture,
 		Status:   "active",
 		Verified: false,
 	}
