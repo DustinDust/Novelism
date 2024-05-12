@@ -128,9 +128,26 @@ func NewApplication() *Application {
 		Timeout:  app.Config.GetDuration("mailer.timeout"),
 	})
 	if err != nil {
-		loggerService.LogError(err, "fail to initialize mailer service")
+		loggerService.LogFatal(err, "fail to initialize mailer service")
 	}
-	r := router.NewRouter(&app.Models, mailer, &loggerService)
+    genAIService, err := services.NewGeminiService()
+    if err != nil {
+        loggerService.LogFatal(err, "fail to initialize generative ai service")
+    }
+
+    // handle shut down of stuff
+    app.EchoInstance.Server.RegisterOnShutdown(func () {
+        err := genAIService.CloseClient()
+        if err != nil {
+            loggerService.LogError(err, "fail to gracefully shutdown genai client connection")
+        }
+        err = app.DB.Close()
+        if err != nil {
+            loggerService.LogError(err, "fail to gracefully shutdown database connection")
+        }
+    })
+
+	r := router.NewRouter(&app.Models, mailer, &loggerService, genAIService)
 
 	app.RegisterRoute(r)
 
@@ -156,7 +173,8 @@ func (app Application) RegisterRoute(r router.Router) {
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
 	api.POST("/test-mail", r.SendTestMail)
-    api.POST("/test-file", r.FileUpload)
+    api.POST("/test-file", r.TestFileUpload)
+    api.POST("/test-ai", r.TestAIPrompt)
 
 	// Authentication group
 	auth := api.Group("/auth")

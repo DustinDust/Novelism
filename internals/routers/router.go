@@ -18,13 +18,15 @@ type Router struct {
 	MailerService *services.MailerService
 	JwtService    *services.JWTService
 	LoggerService *services.LoggerService
+    GenAIService *services.GeminiService
 }
 
-func NewRouter(model *models.Models, mailerService *services.MailerService, loggerService *services.LoggerService) Router {
+func NewRouter(model *models.Models, mailerService *services.MailerService, loggerService *services.LoggerService, genAIService *services.GeminiService) Router {
 	return Router{
 		Model:         model,
 		MailerService: mailerService,
 		LoggerService: loggerService,
+        GenAIService: genAIService,
 		JwtService:    &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
 	}
 }
@@ -82,7 +84,7 @@ func (r Router) SendTestMail(c echo.Context) error {
 	})
 }
 
-func (r Router) FileUpload(c echo.Context) error {
+func (r Router) TestFileUpload(c echo.Context) error {
     name := c.FormValue("name")
     file, err := c.FormFile("image")
     if err != nil {
@@ -103,6 +105,24 @@ func (r Router) FileUpload(c echo.Context) error {
     return c.JSON(200, Response[string]{
     OK: true, 
         Data: file.Filename,
+    })
+}
+
+func (r Router) TestAIPrompt(c echo.Context) error {
+    type PromptBody struct {
+        Prompt string `json:"prompt"`
+    }
+    body := new(PromptBody)
+    if err := c.Bind(body); err != nil {
+        return r.badRequestError(err)
+    }
+    data, err :=  r.GenAIService.GenerateText(body.Prompt)
+    if err != nil {
+        r.serverError(err)
+    }
+    return c.JSON(http.StatusOK, Response[[]string]{
+        OK: true,
+        Data: data,
     })
 }
 
