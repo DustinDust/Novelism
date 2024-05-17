@@ -200,6 +200,4 @@ func (app Application) RegisterRoute(r router.Router) {
 	chapterAPI.POST("", r.CreateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
-	chapterAPI.GET("/:chapterNo/content", r.GetChapterContent, requiredUserVerifiedMiddleware)
-	chapterAPI.POST("/:chapterNo/content", r.UpdateChapterContent, accessTokenMiddleware, requiredUserVerifiedMiddleware)
 }

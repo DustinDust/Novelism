@@ -14,14 +14,14 @@ import (
 )
 
 type Chapter struct {
-	ID          int64      `db:"id" json:"id"`
-	Book        *Book      `json:"-"`
-	BookID      int64      `db:"book_id" json:"bookId"`
-	Author      *User      `json:"-"`
-	AuthorID    int64      `db:"author_id" json:"authorId"`
-	ChapterNO   int64      `db:"chapter_no" json:"chapterNo"`
-	Title       string     `db:"title" json:"title"`
-	Content     *Content   `json:"content"`
+	ID          int64  `db:"id" json:"id"`
+	Book        *Book  `json:"-"`
+	BookID      int64  `db:"book_id" json:"bookId"`
+	Author      *User  `json:"-"`
+	AuthorID    int64  `db:"author_id" json:"authorId"`
+	ChapterNO   int64  `db:"chapter_no" json:"chapterNo"`
+	Title       string `db:"title" json:"title"`
+    Content     *Content `json:"content"`
 	Description string     `db:"description" json:"description"`
 	CreatedAt   *time.Time `db:"created_at" json:"createdAt"`
 	UpdatedAt   *time.Time `db:"updated_at" json:"updatedAt"`
@@ -32,10 +32,8 @@ type ChapterRepository interface {
 	Insert(chapter *Chapter) error
 	Get(chapterNo int64, bookId int64) (*Chapter, error)
 	Update(chapter *Chapter) error
-	Delete(id int64) error
 	Find(bookId int64, title string, filter Filter) ([]*Chapter, Metadata, error)
-	GetContent(chapterNo, bookId int64) (*Chapter, error)
-	UpdateContent(chapter *Chapter, content string) error
+	Delete(id int64) error
 }
 
 type ChapterModel struct {
@@ -210,95 +208,4 @@ func (m ChapterModel) Delete(id int64) error {
 		return utils.ErrorRecordsNotFound
 	}
 	return nil
-}
-
-func (m ChapterModel) GetContent(chapterNo, bookId int64) (*Chapter, error) {
-	chapter := new(Chapter)
-	chapter.Content = new(Content)
-	chapter.Book = new(Book)
-	chapter.Author = new(User)
-
-	statement := `
-		SELECT ch.id, ch.chapter_no, ch.title, b.id, b.title, a.id, a.username,
-		c.id, c.text_content, c.updated_at, c.created_at
-		FROM chapter ch
-		JOIN content c ON c.chapter_id = ch.id
-		JOIN users a ON a.id = ch.author_id
-		JOIN books b ON b.id = ch.book_id
-		WHERE ch.chapter_no = $1
-		AND b.id = $2
-		AND deleted_at IS NULL
-		LIMIT 1
-	`
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	args := []interface{}{chapterNo, bookId}
-	row := m.DB.QueryRowContext(ctx, statement, args...)
-	err := row.Scan(
-		&chapter.ID,
-		&chapter.ChapterNO,
-		&chapter.Title,
-		&chapter.Book.ID,
-		&chapter.Book.Title,
-		&chapter.Author.ID,
-		&chapter.Author.Username,
-		&chapter.Content.ID,
-		&chapter.Content.TextContent,
-		&chapter.Content.CreatedAt,
-		&chapter.Content.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return chapter, nil
-}
-
-func (m ChapterModel) UpdateContent(chapter *Chapter, textContent string) error {
-	// check if this chapter object already populate content
-	if chapter.Content.ID == 0 {
-		var chapterNo, bookId int64
-		chapterNo = chapter.ChapterNO
-		if chapter.BookID != 0 {
-			bookId = chapter.BookID
-		} else if chapter.Book.ID != 0 {
-			bookId = chapter.Book.ID
-		} else {
-			return utils.ErrorInvalidModel
-		}
-		c, err := m.GetContent(chapterNo, bookId)
-		if err != nil {
-			return err
-		}
-		chapter.Content = c.Content
-	}
-	if chapter.Content.ID == 0 {
-		// content doesnt exist
-		createContentStatement := `
-			INSERT INTO contents (text_content)
-			VALUES ($1)
-			RETURNING id, text_content, created_at
-		`
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
-		row := m.DB.QueryRowContext(ctx, createContentStatement, textContent)
-		return row.Scan(&chapter.Content.ID, &chapter.Content.TextContent, &chapter.Content.CreatedAt)
-	} else {
-		updateContentStatement := `
-			UPDATE contents
-			SET text_content=$2, updated_at=$3
-			WHERE id=$1
-			RETURNING text_content, updated_at
-		`
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
-		row := m.DB.QueryRowContext(
-			ctx, updateContentStatement,
-			chapter.Content.ID,
-			textContent,
-			pq.FormatTimestamp(time.Now().UTC()),
-		)
-		return row.Scan(&chapter.Content.TextContent, &chapter.Content.UpdatedAt)
-	}
 }

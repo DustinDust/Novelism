@@ -10,6 +10,7 @@ type Models struct {
 	User    UserRepository
 	Book    BookRepository
 	Chapter ChapterRepository
+    Content ContentRepostiory
 }
 
 func NewModels(db *sqlx.DB) Models {
@@ -23,6 +24,9 @@ func NewModels(db *sqlx.DB) Models {
 		Chapter: ChapterModel{
 			DB: db,
 		},
+        Content: ContentModel{
+            DB: db,
+        },
 	}
 }
 
