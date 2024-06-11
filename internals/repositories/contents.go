@@ -1,4 +1,4 @@
-package models
+package repositories
 
 import (
 	"context"
@@ -20,17 +20,17 @@ type Content struct {
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type ContentRepostiory interface {
+type IContentRepository interface {
 	Insert(*Content) error
 	Get(int64) (*Content, error)
 	Update(*Content) error
 }
 
-type ContentModel struct {
+type ContentRepository struct {
 	DB *sqlx.DB
 }
 
-func (m ContentModel) Insert(content *Content) error {
+func (m ContentRepository) Insert(content *Content) error {
 	if len(content.TextContent) <= 0 {
 		return utils.ErrorInvalidModel
 	}
@@ -50,14 +50,14 @@ func (m ContentModel) Insert(content *Content) error {
 
 // this basically only returns the latest content for the chapter
 // different version of chapter content is stored in a different table
-func (m ContentModel) Get(chapterID int64) (*Content, error) {
+func (m ContentRepository) Get(chapterID int64) (*Content, error) {
 	if chapterID < 1 {
 		return nil, utils.ErrorRecordsNotFound
 	}
 	statement := `
-        SELECT 
+        SELECT
             ct.id, ct.chapter_id, ct.text_content, ct.created_at, ct.updated_at,
-            ch.id, ch.title, ch.chapter_no, ch.description, ch.created_at, ch.updated_at 
+            ch.id, ch.title, ch.chapter_no, ch.description, ch.created_at, ch.updated_at
         FROM contents ct
         JOIN chapters ch ON ch.id = ct.chapter_id
         WHERE ch.id = $1 AND ch.deleted_at IS NULL
@@ -84,17 +84,17 @@ func (m ContentModel) Get(chapterID int64) (*Content, error) {
 	return content, nil
 }
 
-func (m ContentModel) Update(content *Content) error {
-    statement := `
+func (m ContentRepository) Update(content *Content) error {
+	statement := `
         UPDATE contents
         SET text_content = $1
         WHERE id = $2
         RETURNING text_content, updated_at
     `
-    ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-    args := []interface{}{content.ID, content.TextContent}
-    row := m.DB.QueryRowContext(ctx, statement, args...)
-    return  row.Scan(&content.TextContent, &content.UpdatedAt)
+	args := []interface{}{content.ID, content.TextContent}
+	row := m.DB.QueryRowContext(ctx, statement, args...)
+	return row.Scan(&content.TextContent, &content.UpdatedAt)
 }

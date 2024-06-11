@@ -66,7 +66,7 @@ func (j JWTService) SignRefreshToken(claims interface{}) (SignedJwtResult, error
 	})
 }
 
-func (j JWTService) RetreiveUserIdFromContext(c echo.Context) (int, error) {
+func (j JWTService) RetrieveUserIdFromContext(c echo.Context) (int, error) {
 	userId, ok := c.Get("user").(int)
 	if !ok {
 		return -1, errors.New("invalid server context")
@@ -83,7 +83,7 @@ func (j JWTService) verifyToken(tokenString string, secret string) (jwt.MapClaim
 		return nil, err
 	}
 	if !token.Valid {
-		return nil, utils.NewError("invalid token", 401, nil)
+		return nil, utils.NewError("invalid token", 401)
 	}
 	return token.Claims.(jwt.MapClaims), nil
 }

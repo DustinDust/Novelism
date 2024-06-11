@@ -2,7 +2,7 @@ package router
 
 import (
 	"errors"
-	"gin_stuff/internals/models"
+	"gin_stuff/internals/repositories"
 	"gin_stuff/internals/utils"
 	"net/http"
 	"strconv"
@@ -21,22 +21,6 @@ type UpdateChapterPayload struct {
 	Description string `json:"description"`
 }
 
-type UpdateChapterContentPayload struct {
-	TextContent string `json:"textContent" validate:"required"`
-}
-
-func getChapterNoAndBookId(c echo.Context) (int, int, error) {
-	chapterNo, err := strconv.Atoi(c.Param("chapterNo"))
-	if err != nil {
-		return 0, 0, err
-	}
-	bookId, err := strconv.Atoi(c.Param("bookId"))
-	if err != nil {
-		return 0, 0, err
-	}
-	return chapterNo, bookId, nil
-}
-
 func (r Router) CreateChapter(c echo.Context) error {
 	validate := utils.NewValidator()
 	createChapterPayload := new(CreateChapterPayload)
@@ -45,11 +29,11 @@ func (r Router) CreateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	book, err := r.Model.Book.Get(int64(id))
+	book, err := r.Repository.Book.Get(int64(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -72,17 +56,17 @@ func (r Router) CreateChapter(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	chapter := models.Chapter{
+	chapter := repositories.Chapter{
 		AuthorID:    book.UserID,
 		BookID:      book.ID,
 		Title:       createChapterPayload.Title,
 		Description: createChapterPayload.Description,
 	}
-	err = r.Model.Chapter.Insert(&chapter)
+	err = r.Repository.Chapter.Insert(&chapter)
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusCreated, Response[models.Chapter]{
+	return c.JSON(http.StatusCreated, Response[repositories.Chapter]{
 		OK:   true,
 		Data: chapter,
 	})
@@ -95,7 +79,7 @@ func (r Router) FindChapters(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	_, err = r.Model.Book.Get(int64(bookId))
+	_, err = r.Repository.Book.Get(int64(bookId))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -105,7 +89,7 @@ func (r Router) FindChapters(c echo.Context) error {
 		}
 	}
 	var title string
-	filter := models.Filter{
+	filter := repositories.Filter{
 		Page:     1,
 		PageSize: 10,
 		SortSafeList: []string{
@@ -144,11 +128,11 @@ func (r Router) FindChapters(c echo.Context) error {
 		filter.Page = page
 	}
 
-	chapters, metadata, err := r.Model.Chapter.Find(int64(bookId), title, filter)
+	chapters, metadata, err := r.Repository.Chapter.Find(int64(bookId), title, filter)
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, Response[[]*models.Chapter]{
+	return c.JSON(http.StatusOK, Response[[]*repositories.Chapter]{
 		OK:       true,
 		Metadata: metadata,
 		Data:     chapters,
@@ -164,7 +148,7 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -180,7 +164,7 @@ func (r Router) UpdateChapter(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	chapter, err := r.Model.Chapter.Get(int64(chapterNo), int64(bookId))
+	chapter, err := r.Repository.Chapter.Get(int64(chapterNo), int64(bookId))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -198,11 +182,11 @@ func (r Router) UpdateChapter(c echo.Context) error {
 	if updateChapterPayload.Description != "" {
 		chapter.Description = updateChapterPayload.Description
 	}
-	err = r.Model.Chapter.Update(chapter)
+	err = r.Repository.Chapter.Update(chapter)
 	if err != nil {
 		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, Response[models.Chapter]{
+	return c.JSON(http.StatusOK, Response[repositories.Chapter]{
 		OK:   true,
 		Data: *chapter,
 	})
@@ -217,11 +201,11 @@ func (r Router) DeleteChapter(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	chapter, err := r.Model.Chapter.Get(int64(chapterNo), int64(bookId))
+	chapter, err := r.Repository.Chapter.Get(int64(chapterNo), int64(bookId))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -237,4 +221,3 @@ func (r Router) DeleteChapter(c echo.Context) error {
 		OK: true,
 	})
 }
-

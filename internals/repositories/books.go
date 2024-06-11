@@ -1,4 +1,4 @@
-package models
+package repositories
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type Book struct {
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type BookRepository interface {
+type IBookRepository interface {
 	Insert(book *Book) error
 	Get(id int64) (*Book, error)
 	Update(book *Book) error
@@ -31,13 +31,13 @@ type BookRepository interface {
 	Find(userID int, title string, filter Filter) ([]*Book, Metadata, error)
 }
 
-type BookModel struct {
+type BookRepository struct {
 	DB *sqlx.DB
 }
 
 // find all book of 1 user
 // might want to make something more usecase-specific instead of this one giant, error prone api
-func (m BookModel) Find(userId int, title string, filter Filter) ([]*Book, Metadata, error) {
+func (m BookRepository) Find(userId int, title string, filter Filter) ([]*Book, Metadata, error) {
 	if userId <= 0 {
 		return nil, Metadata{}, utils.ErrorUnauthorized
 	}
@@ -82,7 +82,7 @@ func (m BookModel) Find(userId int, title string, filter Filter) ([]*Book, Metad
 	return books, CalculateMetadata(totalRecords, filter.PageSize, filter.Page), nil
 }
 
-func (m BookModel) Insert(book *Book) error {
+func (m BookRepository) Insert(book *Book) error {
 	statement := `
 		INSERT INTO books (title, description, user_id)
 		VALUES ($1, $2, $3)
@@ -96,7 +96,7 @@ func (m BookModel) Insert(book *Book) error {
 	return row.Scan(&book.ID, &book.CreatedAt, &book.UserID)
 }
 
-func (m BookModel) Get(id int64) (*Book, error) {
+func (m BookRepository) Get(id int64) (*Book, error) {
 	if id < 1 {
 		return nil, utils.ErrorRecordsNotFound
 	}
@@ -137,7 +137,7 @@ func (m BookModel) Get(id int64) (*Book, error) {
 	return book, nil
 }
 
-func (m BookModel) Update(b *Book) error {
+func (m BookRepository) Update(b *Book) error {
 	statement := `
 		UPDATE books
 		SET title=$1, description=$2, updated_at=$3
@@ -151,7 +151,7 @@ func (m BookModel) Update(b *Book) error {
 	return row.Scan(&b.Title, &b.Description, &b.UpdatedAt)
 }
 
-func (m BookModel) Delete(id int64) error {
+func (m BookRepository) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}

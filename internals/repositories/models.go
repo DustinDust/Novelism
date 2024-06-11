@@ -1,4 +1,4 @@
-package models
+package repositories
 
 import (
 	"strings"
@@ -6,27 +6,27 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type Models struct {
-	User    UserRepository
-	Book    BookRepository
-	Chapter ChapterRepository
-    Content ContentRepostiory
+type Repository struct {
+	User    IUserRepository
+	Book    IBookRepository
+	Chapter IChapterRepository
+	Content IContentRepository
 }
 
-func NewModels(db *sqlx.DB) Models {
-	return Models{
-		User: UserModel{
+func NewRepository(db *sqlx.DB) Repository {
+	return Repository{
+		User: UserRepository{
 			DB: db,
 		},
-		Book: BookModel{
+		Book: BookRepository{
 			DB: db,
 		},
-		Chapter: ChapterModel{
+		Chapter: ChapterRepository{
 			DB: db,
 		},
-        Content: ContentModel{
-            DB: db,
-        },
+		Content: ContentRepository{
+			DB: db,
+		},
 	}
 }
 

@@ -2,7 +2,7 @@ package router
 
 import (
 	"errors"
-	"gin_stuff/internals/models"
+	"gin_stuff/internals/repositories"
 	"gin_stuff/internals/utils"
 	"net/http"
 	"strconv"
@@ -33,24 +33,24 @@ func (r Router) CreateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	user, err := r.Model.User.Get(int64(userId))
+	user, err := r.Repository.User.Get(int64(userId))
 	if err != nil {
 		return r.serverError(err)
 	}
-	book := models.Book{
+	book := repositories.Book{
 		UserID:      user.ID,
 		User:        user,
 		Title:       createBookPayload.Title,
 		Description: createBookPayload.Description,
 	}
-	if err := r.Model.Book.Insert(&book); err != nil {
+	if err := r.Repository.Book.Insert(&book); err != nil {
 		return r.badRequestError(err)
 	}
-	return c.JSON(http.StatusCreated, Response[models.Book]{
+	return c.JSON(http.StatusCreated, Response[repositories.Book]{
 		OK:   true,
 		Data: book,
 	})
@@ -65,11 +65,11 @@ func (r Router) GetBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	book, err := r.Model.Book.Get(int64(id))
+	book, err := r.Repository.Book.Get(int64(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -109,11 +109,11 @@ func (r Router) UpdateBook(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	book, err := r.Model.Book.Get(int64(id))
+	book, err := r.Repository.Book.Get(int64(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -131,11 +131,11 @@ func (r Router) UpdateBook(c echo.Context) error {
 	if updateBookPayload.Description != "" {
 		book.Description = updateBookPayload.Description
 	}
-	err = r.Model.Book.Update(book)
+	err = r.Repository.Book.Update(book)
 	if err != nil {
 		r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, Response[models.Book]{
+	return c.JSON(http.StatusOK, Response[repositories.Book]{
 		OK:   true,
 		Data: *book,
 	})
@@ -150,11 +150,11 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.forbiddenError(err)
 	}
-	book, err := r.Model.Book.Get(int64(id))
+	book, err := r.Repository.Book.Get(int64(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, utils.ErrorRecordsNotFound):
@@ -166,7 +166,7 @@ func (r Router) DeleteBook(c echo.Context) error {
 	if book.UserID != int64(userId) {
 		return r.forbiddenError(utils.ErrorForbiddenResource)
 	}
-	err = r.Model.Book.Delete(int64(id))
+	err = r.Repository.Book.Delete(int64(id))
 	if err != nil {
 		return r.serverError(err)
 	}
@@ -176,11 +176,11 @@ func (r Router) DeleteBook(c echo.Context) error {
 }
 
 func (r Router) FindBooks(c echo.Context) error {
-	currentUserId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	currentUserId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
-	filter := models.Filter{
+	filter := repositories.Filter{
 		Page:         1,
 		PageSize:     10,
 		SortSafeList: []string{"id", "title", "-id", "-title", "created_at", "-created_at"},
@@ -218,12 +218,12 @@ func (r Router) FindBooks(c echo.Context) error {
 	if queryParams.Has("sort") {
 		filter.Sort = queryParams.Get("sort")
 	}
-	books, metadata, err := r.Model.Book.Find(userId, title, filter)
+	books, metadata, err := r.Repository.Book.Find(userId, title, filter)
 	if err != nil {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusOK,
-		Response[[]*models.Book]{
+		Response[[]*repositories.Book]{
 			OK:       true,
 			Metadata: metadata,
 			Data:     books,

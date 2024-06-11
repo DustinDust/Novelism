@@ -3,7 +3,7 @@ package router
 import (
 	"errors"
 	"fmt"
-	"gin_stuff/internals/models"
+	"gin_stuff/internals/repositories"
 	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"net/http"
@@ -21,11 +21,11 @@ type RegisterPayload struct {
 	Username          string     `json:"username" validate:"required,min=6"`
 	PlaintextPassword string     `json:"password" validate:"required,min=6,max=20,strongPassword"`
 	Email             string     `json:"email" validate:"required,email"`
-	FirstName         string     `json:"firstName" validate:"required"`
-	LastName          string     `json:"lastName" validate:"required"`
+	FirstName         *string    `json:"firstName" validate:"required"`
+	LastName          *string    `json:"lastName" validate:"required"`
 	DateOfBirth       *time.Time `json:"dateOfBirth" validate:"birthday"`
-	Gender            string     `json:"string" validate:"required"`
-    ProfilePicture    string     `json:"profilePicture" validate:"required,url"`
+	Gender            *string    `json:"string" validate:"required"`
+	ProfilePicture    *string    `json:"profilePicture" validate:"required,url"`
 }
 
 type ForgetPasswordPayload struct {
@@ -56,7 +56,7 @@ func (r Router) Login(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	user, err := r.Model.User.Login(loginPayload.Username, loginPayload.PlaintextPassword)
+	user, err := r.Repository.User.Login(loginPayload.Username, loginPayload.PlaintextPassword)
 	if err != nil {
 		if errors.Is(err, utils.ErrorInvalidCredentials) {
 			return r.unauthorizedError(err)
@@ -65,9 +65,6 @@ func (r Router) Login(c echo.Context) error {
 		}
 	}
 	accessToken, err := r.JwtService.SignAccessToken(user.ID)
-	if err != nil {
-		return r.serverError(err)
-	}
 	if err != nil {
 		return r.serverError(err)
 	}
@@ -91,7 +88,7 @@ func (r Router) VerifyEmail(c echo.Context) error {
 	if err := validate.ValidateStruct(payload); err != nil {
 		return r.badRequestError(err)
 	}
-	user, err := r.Model.User.Get(int64(payload.UserID))
+	user, err := r.Repository.User.Get(int64(payload.UserID))
 	if err != nil {
 		return r.badRequestError(err)
 	}
@@ -101,7 +98,7 @@ func (r Router) VerifyEmail(c echo.Context) error {
 	if user.VerificationToken == payload.Token {
 		user.VerificationToken = ""
 		user.Verified = true
-		err := r.Model.User.Update(user)
+		err := r.Repository.User.Update(user)
 		if err != nil {
 			return r.serverError(err)
 		}
@@ -113,11 +110,11 @@ func (r Router) VerifyEmail(c echo.Context) error {
 }
 
 func (r Router) ResendVerificationEmail(c echo.Context) error {
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
-	user, err := r.Model.User.Get(int64(userId))
+	user, err := r.Repository.User.Get(int64(userId))
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
@@ -127,7 +124,7 @@ func (r Router) ResendVerificationEmail(c echo.Context) error {
 	cryptoService := services.NewCryptoService()
 	verificationToken := cryptoService.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
-	if err := r.Model.User.Update(user); err != nil {
+	if err := r.Repository.User.Update(user); err != nil {
 		return r.serverError(err)
 	}
 	if err := r.MailerService.Perform(&services.Mail{
@@ -156,16 +153,16 @@ func (r Router) Register(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	user := &models.User{
-		Username: registerPayload.Username,
-		Email:    registerPayload.Email,
-        FirstName: registerPayload.FirstName,
-        LastName: registerPayload.LastName,
-        DateOfBirth: registerPayload.DateOfBirth,
-        Gender: registerPayload.Gender,
-        ProfilePicture: registerPayload.ProfilePicture,
-		Status:   "active",
-		Verified: false,
+	user := &repositories.User{
+		Username:       registerPayload.Username,
+		Email:          registerPayload.Email,
+		FirstName:      registerPayload.FirstName,
+		LastName:       registerPayload.LastName,
+		DateOfBirth:    registerPayload.DateOfBirth,
+		Gender:         registerPayload.Gender,
+		ProfilePicture: registerPayload.ProfilePicture,
+		Status:         "active",
+		Verified:       false,
 	}
 	if err := user.SetPassword(registerPayload.PlaintextPassword); err != nil {
 		return r.serverError(err)
@@ -173,7 +170,7 @@ func (r Router) Register(c echo.Context) error {
 	cryptoService := services.NewCryptoService()
 	verificationToken := cryptoService.GenerateSecureToken(32)
 	user.VerificationToken = verificationToken
-	if err := r.Model.User.Insert(user); err != nil {
+	if err := r.Repository.User.Insert(user); err != nil {
 		return r.badRequestError(err)
 	}
 	if err := r.MailerService.Perform(&services.Mail{
@@ -198,14 +195,14 @@ func (r Router) ForgetPassword(c echo.Context) error {
 	if err := validate.ValidateStruct(payload); err != nil {
 		return r.badRequestError(err)
 	}
-	user, err := r.Model.User.GetByEmail(payload.Email, "active")
+	user, err := r.Repository.User.GetByEmail(payload.Email, "active")
 	if err != nil {
 		return r.badRequestError(err)
 	}
 	cryptoService := services.NewCryptoService()
 	passwordResetToken := cryptoService.GenerateSecureToken(32)
 	user.PasswordResetToken = passwordResetToken
-	if err := r.Model.User.Update(user); err != nil {
+	if err := r.Repository.User.Update(user); err != nil {
 		return r.serverError(err)
 	}
 
@@ -231,18 +228,18 @@ func (r Router) ResetPassword(c echo.Context) error {
 	if err := validate.ValidateStruct(payload); err != nil {
 		return r.badRequestError(err)
 	}
-	user, err := r.Model.User.Get(int64(payload.UserId))
+	user, err := r.Repository.User.Get(int64(payload.UserId))
 	if err != nil {
 		return r.badRequestError(err)
 	}
 	if payload.Token != user.PasswordResetToken {
-		return r.unauthorizedError(utils.NewError("invalid error", 403, nil))
+		return r.unauthorizedError(utils.NewError("invalid error", 403))
 	}
 	if err := user.SetPassword(payload.NewPassword); err != nil {
 
 		return r.serverError(err)
 	}
-	if err := r.Model.User.Update(user); err != nil {
+	if err := r.Repository.User.Update(user); err != nil {
 		return r.serverError(err)
 	}
 	return c.JSON(200, Response[any]{
@@ -251,15 +248,15 @@ func (r Router) ResetPassword(c echo.Context) error {
 }
 
 func (r Router) Me(c echo.Context) error {
-	userId, err := r.JwtService.RetreiveUserIdFromContext(c)
+	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
 	if err != nil {
 		return r.unauthorizedError(err)
 	}
-	user, err := r.Model.User.Get(int64(userId))
+	user, err := r.Repository.User.Get(int64(userId))
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	return c.JSON(200, Response[models.User]{
+	return c.JSON(200, Response[repositories.User]{
 		OK:   true,
 		Data: *user,
 	})

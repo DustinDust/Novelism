@@ -1,4 +1,4 @@
-package models
+package repositories
 
 import (
 	"context"
@@ -13,17 +13,18 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// user models
+// USER models
+// should be in a different model package but im too lazy sorry :(
 type User struct {
 	ID                 int64      `db:"id" json:"id"`
 	Username           string     `db:"username" json:"username"`
 	PasswordHash       string     `db:"password_hash" json:"-"`
 	Email              string     `db:"email" json:"email"`
-	FirstName          string     `db:"first_name" json:"firstName"`
-	LastName           string     `db:"last_name" json:"lastName"`
+	FirstName          *string    `db:"first_name" json:"firstName"`
+	LastName           *string    `db:"last_name" json:"lastName"`
 	DateOfBirth        *time.Time `dh:"date_of_birth" json:"dateOfBirth"`
-	Gender             string     `db:"gender" json:"gender"`
-	ProfilePicture     string     `db:"profile_picture" json:"profilePicture"`
+	Gender             *string    `db:"gender" json:"gender"`
+	ProfilePicture     *string    `db:"profile_picture" json:"profilePicture"`
 	Status             string     `db:"status" json:"status"`
 	Verified           bool       `db:"verified" json:"verified"`
 	VerificationToken  string     `db:"verification_token" json:"-"`
@@ -32,7 +33,32 @@ type User struct {
 	UpdatedAt          *time.Time `db:"updated_at" json:"updatedAt"`
 }
 
-type UserRepository interface {
+func (u *User) SetPassword(plaintextPassword string) error {
+	cryptoService := services.NewCryptoService()
+	hash, err := cryptoService.Hash(plaintextPassword)
+	if err != nil {
+		return err
+	}
+	u.PasswordHash = hash
+	return nil
+}
+
+func (u *User) MatchPassword(plaintextPassword string) (bool, error) {
+	cryptoService := services.NewCryptoService()
+	err := cryptoService.Match(plaintextPassword, u.PasswordHash)
+	if err != nil {
+		switch {
+		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
+			return false, nil
+		default:
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// USER repository
+type IUserRepository interface {
 	Insert(user *User) error
 	Get(id int64) (*User, error)
 	Update(user *User) error
@@ -41,17 +67,17 @@ type UserRepository interface {
 	GetByEmail(string, string) (*User, error)
 }
 
-type UserModel struct {
+type UserRepository struct {
 	DB *sqlx.DB
 }
 
-func (m UserModel) Insert(user *User) error {
+func (m UserRepository) Insert(user *User) error {
 	statement := `
 		INSERT INTO users (
-            username, 
-            password_hash, 
-            email, verified, 
-            verification_token, 
+            username,
+            password_hash,
+            email, verified,
+            verification_token,
             status,
             first_name,
             last_name,
@@ -82,7 +108,7 @@ func (m UserModel) Insert(user *User) error {
 	return row.Scan(&user.ID, &user.CreatedAt)
 }
 
-func (m UserModel) Get(id int64) (*User, error) {
+func (m UserRepository) Get(id int64) (*User, error) {
 	if id < 1 {
 		return nil, utils.ErrorRecordsNotFound
 	}
@@ -93,14 +119,14 @@ func (m UserModel) Get(id int64) (*User, error) {
             username,
             password_hash,
 			email,
-            verified, 
+            verified,
             COALESCE(verification_token, ''),
             status,
             first_name,
             last_name,
             date_of_birth,
             gender,
-            profile_picture, 
+            profile_picture,
             created_at, updated_at
 		FROM users
 		WHERE id=$1
@@ -137,7 +163,7 @@ func (m UserModel) Get(id int64) (*User, error) {
 	return user, nil
 }
 
-func (m UserModel) Login(username string, plaintextPassword string) (*User, error) {
+func (m UserRepository) Login(username string, plaintextPassword string) (*User, error) {
 	statement := "SELECT id, username, password_hash, email, verified, status FROM users WHERE username=$1 AND status != 'deleted'"
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -163,7 +189,7 @@ func (m UserModel) Login(username string, plaintextPassword string) (*User, erro
 	return user, nil
 }
 
-func (m UserModel) Update(user *User) error {
+func (m UserRepository) Update(user *User) error {
 	statement := `
 		UPDATE users SET
 			username=$1,
@@ -184,17 +210,17 @@ func (m UserModel) Update(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	args := []interface{}{
 		user.Username,
-        user.PasswordHash,
+		user.PasswordHash,
 		user.Email,
-        user.Verified,
+		user.Verified,
 		user.VerificationToken,
 		user.Status,
-        user.FirstName,
-        user.LastName,
-        user.DateOfBirth,
-        user.Gender,
-        user.ProfilePicture,
-        pq.FormatTimestamp(time.Now().UTC()),
+		user.FirstName,
+		user.LastName,
+		user.DateOfBirth,
+		user.Gender,
+		user.ProfilePicture,
+		pq.FormatTimestamp(time.Now().UTC()),
 		user.ID,
 	}
 	defer cancel()
@@ -202,7 +228,7 @@ func (m UserModel) Update(user *User) error {
 	return row.Scan(&user.Username, &user.PasswordHash, &user.Email, &user.Verified, &user.VerificationToken, &user.Status, &user.UpdatedAt)
 }
 
-func (m UserModel) Delete(id int64) error {
+func (m UserRepository) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}
@@ -224,9 +250,9 @@ func (m UserModel) Delete(id int64) error {
 	return nil
 }
 
-func (m UserModel) GetByEmail(email string, status string) (*User, error) {
+func (m UserRepository) GetByEmail(email string, status string) (*User, error) {
 	if !utils.IsItemInCollection(status, UserStatuses) {
-		return nil, utils.NewError("invalid user status", 400, nil)
+		return nil, utils.NewError("invalid user status", 400)
 	}
 	statement := `SELECT
 		id,
@@ -257,11 +283,11 @@ func (m UserModel) GetByEmail(email string, status string) (*User, error) {
 		&user.Verified,
 		&user.VerificationToken,
 		&user.Status,
-        &user.FirstName,
-        &user.LastName,
-        &user.DateOfBirth,
-        &user.Gender,
-        &user.ProfilePicture,
+		&user.FirstName,
+		&user.LastName,
+		&user.DateOfBirth,
+		&user.Gender,
+		&user.ProfilePicture,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -274,28 +300,4 @@ func (m UserModel) GetByEmail(email string, status string) (*User, error) {
 		}
 	}
 	return user, nil
-}
-
-func (u *User) SetPassword(plaintextPassword string) error {
-	cryptoService := services.NewCryptoService()
-	hash, err := cryptoService.Hash(plaintextPassword)
-	if err != nil {
-		return err
-	}
-	u.PasswordHash = hash
-	return nil
-}
-
-func (u *User) MatchPassword(plaintextPassword string) (bool, error) {
-	cryptoService := services.NewCryptoService()
-	err := cryptoService.Match(plaintextPassword, u.PasswordHash)
-	if err != nil {
-		switch {
-		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
-			return false, nil
-		default:
-			return false, err
-		}
-	}
-	return true, nil
 }

@@ -1,5 +1,5 @@
-package models
+package repositories
 
-// !CONSTANT
+// CONSTANT
 
 var UserStatuses = []string{"active", "idle", "deleted"}

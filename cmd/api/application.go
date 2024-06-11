@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"gin_stuff/internals/config"
 	"gin_stuff/internals/database"
-	"gin_stuff/internals/models"
+	"gin_stuff/internals/repositories"
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
 	"log"
@@ -26,7 +26,7 @@ type Application struct {
 	EchoInstance *echo.Echo
 	Config       *viper.Viper
 	DB           *sqlx.DB
-	Models       models.Models
+	Repository   repositories.Repository
 }
 
 func NewApplication() *Application {
@@ -98,7 +98,7 @@ func NewApplication() *Application {
 	app.EchoInstance.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 	}))
-    app.EchoInstance.Static("/", "assets")
+	app.EchoInstance.Static("/", "assets")
 
 	// db configuration
 	dbUri := app.Config.GetString("database.uri")
@@ -115,7 +115,7 @@ func NewApplication() *Application {
 	}
 
 	// models
-	app.Models = models.NewModels(app.DB)
+	app.Repository = repositories.NewRepository(app.DB)
 
 	// router
 
@@ -130,24 +130,24 @@ func NewApplication() *Application {
 	if err != nil {
 		loggerService.LogFatal(err, "fail to initialize mailer service")
 	}
-    genAIService, err := services.NewGeminiService()
-    if err != nil {
-        loggerService.LogFatal(err, "fail to initialize generative ai service")
-    }
+	genAIService, err := services.NewGeminiService()
+	if err != nil {
+		loggerService.LogFatal(err, "fail to initialize generative ai service")
+	}
 
-    // handle shut down of stuff
-    app.EchoInstance.Server.RegisterOnShutdown(func () {
-        err := genAIService.CloseClient()
-        if err != nil {
-            loggerService.LogError(err, "fail to gracefully shutdown genai client connection")
-        }
-        err = app.DB.Close()
-        if err != nil {
-            loggerService.LogError(err, "fail to gracefully shutdown database connection")
-        }
-    })
+	// handle shut down of stuff
+	app.EchoInstance.Server.RegisterOnShutdown(func() {
+		err := genAIService.CloseClient()
+		if err != nil {
+			loggerService.LogError(err, "fail to gracefully shutdown gen ai client connection")
+		}
+		err = app.DB.Close()
+		if err != nil {
+			loggerService.LogError(err, "fail to gracefully shutdown database connection")
+		}
+	})
 
-	r := router.NewRouter(&app.Models, mailer, &loggerService, genAIService)
+	r := router.NewRouter(&app.Repository, mailer, &loggerService, genAIService)
 
 	app.RegisterRoute(r)
 
@@ -169,12 +169,12 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
 	accessTokenMiddleware := middlewares.NewJWTMiddleware("access")
-	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Model.User)
+	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Repository.User)
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
 	api.POST("/test-mail", r.SendTestMail)
-    api.POST("/test-file", r.TestFileUpload)
-    api.POST("/test-ai", r.TestAIPrompt)
+	api.POST("/test-file", r.TestFileUpload)
+	api.POST("/test-ai", r.TestAIPrompt)
 
 	// Authentication group
 	auth := api.Group("/auth")

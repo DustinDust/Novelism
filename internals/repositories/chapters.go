@@ -1,4 +1,4 @@
-package models
+package repositories
 
 import (
 	"context"
@@ -14,21 +14,21 @@ import (
 )
 
 type Chapter struct {
-	ID          int64  `db:"id" json:"id"`
-	Book        *Book  `json:"-"`
-	BookID      int64  `db:"book_id" json:"bookId"`
-	Author      *User  `json:"-"`
-	AuthorID    int64  `db:"author_id" json:"authorId"`
-	ChapterNO   int64  `db:"chapter_no" json:"chapterNo"`
-	Title       string `db:"title" json:"title"`
-    Content     *Content `json:"content"`
+	ID          int64      `db:"id" json:"id"`
+	Book        *Book      `json:"-"`
+	BookID      int64      `db:"book_id" json:"bookId"`
+	Author      *User      `json:"-"`
+	AuthorID    int64      `db:"author_id" json:"authorId"`
+	ChapterNO   int64      `db:"chapter_no" json:"chapterNo"`
+	Title       string     `db:"title" json:"title"`
+	Content     *Content   `json:"content"`
 	Description string     `db:"description" json:"description"`
 	CreatedAt   *time.Time `db:"created_at" json:"createdAt"`
 	UpdatedAt   *time.Time `db:"updated_at" json:"updatedAt"`
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type ChapterRepository interface {
+type IChapterRepository interface {
 	Insert(chapter *Chapter) error
 	Get(chapterNo int64, bookId int64) (*Chapter, error)
 	Update(chapter *Chapter) error
@@ -36,11 +36,11 @@ type ChapterRepository interface {
 	Delete(id int64) error
 }
 
-type ChapterModel struct {
+type ChapterRepository struct {
 	DB *sqlx.DB
 }
 
-func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapter, Metadata, error) {
+func (m ChapterRepository) Find(bookId int64, title string, filter Filter) ([]*Chapter, Metadata, error) {
 	if bookId < 1 {
 		return nil, Metadata{}, utils.ErrorRecordsNotFound
 	}
@@ -95,7 +95,7 @@ func (m ChapterModel) Find(bookId int64, title string, filter Filter) ([]*Chapte
 	return chapters, CalculateMetadata(totalRecords, filter.PageSize, filter.Page), nil
 }
 
-func (m ChapterModel) Insert(chapter *Chapter) error {
+func (m ChapterRepository) Insert(chapter *Chapter) error {
 	if chapter.ChapterNO == 0 {
 		chapters, _, err := m.Find(chapter.BookID, "", Filter{
 			SortSafeList: []string{"-chapter_no"},
@@ -128,7 +128,7 @@ func (m ChapterModel) Insert(chapter *Chapter) error {
 }
 
 // this get by the uniqe index, not the id. Personally I dont know what to do with it :(
-func (m ChapterModel) Get(chapterNo int64, bookId int64) (*Chapter, error) {
+func (m ChapterRepository) Get(chapterNo int64, bookId int64) (*Chapter, error) {
 	if bookId < 1 || chapterNo < 1 {
 		return nil, utils.ErrorRecordsNotFound
 	}
@@ -170,7 +170,7 @@ func (m ChapterModel) Get(chapterNo int64, bookId int64) (*Chapter, error) {
 	return chapter, nil
 }
 
-func (m ChapterModel) Update(ch *Chapter) error {
+func (m ChapterRepository) Update(ch *Chapter) error {
 	statement := `
 		UPDATE chapters
 		SET title=$2, description=$3, updated_at=$4
@@ -185,7 +185,7 @@ func (m ChapterModel) Update(ch *Chapter) error {
 	return row.Scan(&ch.Title, &ch.Description, &ch.ChapterNO, &ch.UpdatedAt)
 }
 
-func (m ChapterModel) Delete(id int64) error {
+func (m ChapterRepository) Delete(id int64) error {
 	if id < 1 {
 		return utils.ErrorRecordsNotFound
 	}
