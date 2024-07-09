@@ -1,24 +1,61 @@
 package utils
 
 import (
-	"net/http"
+	"errors"
+	"os"
 
-	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 )
 
-var (
-	ErrorInvalidCredentials = NewError("invalid credentials", http.StatusUnauthorized)
-	ErrorUnauthorized       = NewError("unauthorized", http.StatusUnauthorized)
-	ErrorRecordsNotFound    = NewError("record(s) not found", http.StatusNotFound)
-	ErrorValidationStruct   = NewError("invalid data format", http.StatusBadRequest)
-	ErrorInvalidRouteParam  = NewError("invalid route parameters", http.StatusBadRequest)
-	ErrorForbiddenResource  = NewError("permissions required to access this resource(s)", http.StatusForbidden)
-	ErrorInvalidQueryParams = NewError("invalid route query", http.StatusBadRequest)
-	ErrorInvalidModel       = NewError("invalid model object", http.StatusBadRequest)
-	ErrorUnverfiedUser      = NewError("unverified user", http.StatusUnauthorized)
-	ErrorInvalidToken       = NewError("invalid token", http.StatusUnauthorized)
-)
+var logger = zerolog.New(os.Stderr)
 
-func NewError(message string, code int) error {
-	return echo.NewHTTPError(code, message)
+func NewError(message string) error {
+	err := errors.New(message)
+	// log wrapper
+	logger.Error().Err(err).Timestamp().Send()
+	return err
+}
+
+func ErrInvalidCredentials() error {
+	return NewError("invalid credentials")
+}
+
+func ErrUnauthorized() error {
+	return NewError("unauthorized")
+}
+
+func ErrorRecordsNotFound() error {
+	return NewError("record(s) not found")
+}
+
+func ErrorValidationStruct() error {
+	return NewError("invalid data format")
+}
+
+func ErrorInvalidRouteParam() error {
+	return NewError("invalid route parameters")
+}
+
+func ErrorForbiddenResource() error {
+	return NewError("permissions required to access this resource(s)")
+}
+
+func ErrorInvalidQueryParams() error {
+	return NewError("invalid route query")
+}
+
+func ErrorInvalidModel() error {
+	return NewError("invalid model object")
+}
+
+func ErrorUnverfiedUser() error {
+	return NewError("unverified user")
+}
+
+func ErrorInvalidToken() error {
+	return NewError("invalid token")
+}
+
+func ErrInvalidContext() error {
+	return NewError("invalid server context")
 }

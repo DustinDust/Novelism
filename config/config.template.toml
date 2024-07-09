@@ -6,9 +6,6 @@ server = ""
 
 [database]
 uri = ""
-max_idle_conns = 25
-max_open_conns = 2
-max_idle_time = "15m"
 
 [jwt]
 access_ecret = "supersecret"

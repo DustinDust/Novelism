@@ -1,7 +1,7 @@
 package services
 
 import (
-	"os"
+	"io"
 
 	"github.com/rs/zerolog"
 )
@@ -10,14 +10,14 @@ type LoggerService struct {
 	Logger zerolog.Logger
 }
 
-func NewLoggerService() LoggerService {
+func NewLoggerService(out io.Writer) LoggerService {
 	return LoggerService{
-		Logger: zerolog.New(os.Stdout),
+		Logger: zerolog.New(out),
 	}
 }
 
 func (service LoggerService) LogError(err error, message string) {
-	service.Logger.Error().Err(err).Stack().Timestamp().Msg(message)
+	service.Logger.Error().Err(err).Timestamp().Msg(message)
 }
 
 func (service LoggerService) LogInfo(data any, message string) {

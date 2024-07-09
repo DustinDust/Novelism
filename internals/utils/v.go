@@ -33,7 +33,7 @@ func NewValidator() *Validator {
 
 	// Custom validations
 	v.RegisterValidation("strongPassword", strongPassword)
-    v.RegisterValidation("birthday", birthday)
+	v.RegisterValidation("birthday", birthday)
 
 	return &Validator{
 		Validator: v,
@@ -41,16 +41,16 @@ func NewValidator() *Validator {
 }
 
 func birthday(fl validator.FieldLevel) bool {
-    birthdayString := fl.Field().String()
-    // parse iso timestamp
-    birthday, err := time.Parse(time.RFC3339, birthdayString)
-    if err != nil {
-        return false
-    }
-    if birthday.UTC().Before(time.Now().UTC()) {
-        return true
-    }
-    return false
+	birthdayString := fl.Field().String()
+	// parse iso timestamp
+	birthday, err := time.Parse(time.RFC3339, birthdayString)
+	if err != nil {
+		return false
+	}
+	if birthday.UTC().Before(time.Now().UTC()) {
+		return true
+	}
+	return false
 }
 
 func strongPassword(fl validator.FieldLevel) bool {
@@ -99,8 +99,8 @@ func (ve *StructValidationErrors) Error() string {
 }
 
 // Return a echo.HttpError
-func (ve *StructValidationErrors) TranslateError() error {
-	errMessage := ErrorValidationStruct.Error()
+func (ve *StructValidationErrors) TranslateToHttpError() error {
+	errMessage := "invalid data format"
 	errData := []interface{}{}
 
 	for _, e := range ve.FieldErrors {

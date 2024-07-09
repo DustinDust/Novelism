@@ -7,6 +7,7 @@ import (
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ type Application struct {
 func NewApplication() *Application {
 	// load config from file
 	config.LoadConfig()
-	loggerService := services.NewLoggerService()
+	loggerService := services.NewLoggerService(os.Stdout)
 
 	// create new echo (server) instance
 	e := echo.New()
@@ -91,7 +92,7 @@ func NewApplication() *Application {
 	// db configuration
 	dbUri := viper.GetString("database.uri")
 	if dbInstance, err := OpenDB(); err != nil {
-		app.LogFatalf("Can't open connection to database: %v", err)
+		log.Fatalf("Can't open connection to database: %v", err)
 	} else {
 		log.Printf("Connected to database at %s", strings.Split(dbUri, "@")[1])
 		app.DB = dbInstance
@@ -106,7 +107,7 @@ func NewApplication() *Application {
 		Timeout:  viper.GetDuration("mailer.timeout"),
 	})
 	if err != nil {
-		loggerService.LogFatal(err, "fail to initialize mailer service")
+		log.Fatal(err, "fail to initialize mailer service")
 	}
 
 	// handle shut down of stuff
@@ -123,23 +124,15 @@ func NewApplication() *Application {
 	return app
 }
 
-// some helper functions for application
-
-// Log fatal error
-func (app *Application) LogFatalf(format string, args ...interface{}) {
-	app.EchoInstance.Logger.Fatalf(format, args)
-}
-
-// Log server information
-func (app *Application) LogInfof(format string, args ...interface{}) {
-	app.EchoInstance.Logger.Infof(format, args)
-}
-
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
 }
 
-func (app Application) Run(addr string) error {
+func (app Application) Run() error {
+	addr := viper.GetString("general.server")
+	if addr == "" {
+		addr = ":80"
+	}
 	return app.EchoInstance.Start(addr)
 }
 
