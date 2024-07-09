@@ -12,7 +12,7 @@ import (
 
 // need the model object
 // pass it versus recreate? Id
-func NewUserVerificationRequireMiddleware(repository repositories.IUserRepository) echo.MiddlewareFunc {
+func NewUserVerificationRequireMiddleware(repository repositories.UserQueries) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			jwtService := services.JWTService{}

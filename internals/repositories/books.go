@@ -23,7 +23,7 @@ type Book struct {
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type IBookRepository interface {
+type BookQueries interface {
 	Insert(book *Book) error
 	Get(id int64) (*Book, error)
 	Update(book *Book) error

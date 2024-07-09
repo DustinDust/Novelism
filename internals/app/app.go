@@ -1,9 +1,10 @@
-package main
+package app
 
 import (
 	"fmt"
 	"gin_stuff/internals/config"
 	"gin_stuff/internals/database"
+	"gin_stuff/internals/middlewares"
 	"gin_stuff/internals/repositories"
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
@@ -11,31 +12,22 @@ import (
 	"strings"
 	"time"
 
-	eLog "github.com/labstack/gommon/log"
-	"github.com/rs/zerolog"
-
-	"gin_stuff/internals/middlewares"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )
 
 type Application struct {
 	EchoInstance *echo.Echo
-	Config       *viper.Viper
 	DB           *sqlx.DB
-	Repository   repositories.Repository
 }
 
 func NewApplication() *Application {
 	// load config from file
-	config, err := config.LoadConfig()
+	config.LoadConfig()
 	loggerService := services.NewLoggerService()
-	if err != nil {
-		loggerService.LogFatal(err, "fail to load config")
-	}
 
 	// create new echo (server) instance
 	e := echo.New()
@@ -43,12 +35,10 @@ func NewApplication() *Application {
 	// create new application
 	app := &Application{
 		EchoInstance: e,
-		Config:       config,
 	}
 
 	// apply configuration
 	app.EchoInstance.Debug = true
-	app.EchoInstance.Logger.SetLevel(eLog.DEBUG)
 	app.EchoInstance.Use(middleware.RequestID())
 	app.EchoInstance.Use(middleware.RequestLoggerWithConfig(
 		middleware.RequestLoggerConfig{
@@ -101,11 +91,11 @@ func NewApplication() *Application {
 	app.EchoInstance.Static("/", "assets")
 
 	// db configuration
-	dbUri := app.Config.GetString("database.uri")
+	dbUri := viper.GetString("database.uri")
 	dbConfig := database.DBConfig{
-		MaxIdleConnections: app.Config.GetInt("database.max_db_conns"),
-		MaxOpenConnections: app.Config.GetInt("database.max_open_conns"),
-		MaxIdleTime:        app.Config.GetDuration("database.max_idle_time"),
+		MaxIdleConnections: viper.GetInt("database.max_db_conns"),
+		MaxOpenConnections: viper.GetInt("database.max_open_conns"),
+		MaxIdleTime:        viper.GetDuration("database.max_idle_time"),
 	}
 	if dbInstance, err := database.OpenDB(dbUri, dbConfig); err != nil {
 		app.LogFatalf("Can't open connection to database: %v", err)
@@ -114,41 +104,28 @@ func NewApplication() *Application {
 		app.DB = dbInstance
 	}
 
-	// models
-	app.Repository = repositories.NewRepository(app.DB)
-
-	// router
-
 	// mailer
 	mailer, err := services.NewMailerService(services.MailerSMTPConfig{
-		Host:     app.Config.GetString("mailer.host"),
-		Port:     app.Config.GetInt64("mailer.port"),
-		Login:    app.Config.GetString("mailer.login"),
-		Password: app.Config.GetString("mailer.password"),
-		Timeout:  app.Config.GetDuration("mailer.timeout"),
+		Host:     viper.GetString("mailer.host"),
+		Port:     viper.GetInt64("mailer.port"),
+		Login:    viper.GetString("mailer.login"),
+		Password: viper.GetString("mailer.password"),
+		Timeout:  viper.GetDuration("mailer.timeout"),
 	})
 	if err != nil {
 		loggerService.LogFatal(err, "fail to initialize mailer service")
 	}
-	genAIService, err := services.NewGeminiService()
-	if err != nil {
-		loggerService.LogFatal(err, "fail to initialize generative ai service")
-	}
 
 	// handle shut down of stuff
 	app.EchoInstance.Server.RegisterOnShutdown(func() {
-		err := genAIService.CloseClient()
-		if err != nil {
-			loggerService.LogError(err, "fail to gracefully shutdown gen ai client connection")
-		}
 		err = app.DB.Close()
 		if err != nil {
 			loggerService.LogError(err, "fail to gracefully shutdown database connection")
 		}
 	})
 
-	r := router.NewRouter(&app.Repository, mailer, &loggerService, genAIService)
-
+	repo := repositories.New(app.DB)
+	r := router.New(&repo, mailer, &loggerService)
 	app.RegisterRoute(r)
 
 	return app
@@ -168,36 +145,41 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
-	accessTokenMiddleware := middlewares.NewJWTMiddleware("access")
-	requiredUserVerifiedMiddleware := middlewares.NewUserVerificationRequireMiddleware(r.Repository.User)
+	requireAccessToken := middlewares.NewJWTMiddleware("access")
+	requireUserVerification := middlewares.NewUserVerificationRequireMiddleware(r.Repository.User)
 	//gloabl prefix
 	api := app.EchoInstance.Group("/api")
-	api.POST("/test-mail", r.SendTestMail)
-	api.POST("/test-file", r.TestFileUpload)
-	api.POST("/test-ai", r.TestAIPrompt)
 
 	// Authentication group
 	auth := api.Group("/auth")
 	auth.POST("/sign-in", r.Login)
 	auth.POST("/sign-up", r.Register)
 	auth.POST("/verify-email", r.VerifyEmail)
-	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, accessTokenMiddleware)
+	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, requireAccessToken)
 	auth.POST("/forget-password", r.ForgetPassword)
 	auth.POST("/reset-password", r.ResetPassword)
-	auth.GET("/me", r.Me, accessTokenMiddleware)
+	auth.GET("/me", r.Me, requireAccessToken)
 
 	//book group
 	bookAPI := api.Group("/book")
-	bookAPI.GET("", r.FindBooks, accessTokenMiddleware)
+	bookAPI.GET("", r.FindBooks, requireAccessToken)
 	bookAPI.GET("/:id", r.GetBook)
-	bookAPI.POST("", r.CreateBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
-	bookAPI.PATCH("/:id", r.UpdateBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
-	bookAPI.DELETE("/:id", r.DeleteBook, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	bookAPI.POST("", r.CreateBook, requireAccessToken, requireUserVerification)
+	bookAPI.PATCH("/:id", r.UpdateBook, requireAccessToken, requireUserVerification)
+	bookAPI.DELETE("/:id", r.DeleteBook, requireAccessToken, requireUserVerification)
 
 	// chapter API
 	chapterAPI := bookAPI.Group("/:bookId/chapter")
 	chapterAPI.GET("", r.FindChapters)
-	chapterAPI.POST("", r.CreateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
-	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
-	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, accessTokenMiddleware, requiredUserVerifiedMiddleware)
+	chapterAPI.POST("", r.CreateChapter, requireAccessToken, requireUserVerification)
+	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, requireAccessToken, requireUserVerification)
+	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, requireAccessToken, requireUserVerification)
+
+	// chapter content
+	contentAPI := api.Group("/chapter/:chapterUID/content")
+	contentAPI.GET("", r.GetContent, requireAccessToken)
+}
+
+func (app Application) Run(addr string) error {
+	return app.EchoInstance.Start(addr)
 }

@@ -20,7 +20,7 @@ type Content struct {
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type IContentRepository interface {
+type ContentQueries interface {
 	Insert(*Content) error
 	Get(int64) (*Content, error)
 	Update(*Content) error
@@ -57,7 +57,7 @@ func (m ContentRepository) Get(chapterID int64) (*Content, error) {
 	statement := `
         SELECT
             ct.id, ct.chapter_id, ct.text_content, ct.created_at, ct.updated_at,
-            ch.id, ch.title, ch.chapter_no, ch.description, ch.created_at, ch.updated_at
+            ch.id, ch.title, ch.chapter_no, ch.description, ch.created_at, ch.updated_at, ch.author_id
         FROM contents ct
         JOIN chapters ch ON ch.id = ct.chapter_id
         WHERE ch.id = $1 AND ch.deleted_at IS NULL

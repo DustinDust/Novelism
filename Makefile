@@ -1,21 +1,14 @@
 ENV ?= "development"
 CONFIG_PATH ?= "./config"
 DB_CONN ?= "postgres://postgres:123123@localhost/novelism?sslmode=disable"
-TASK ?= main.go
-
-run.dev:
-	air
 
 run.local:
 	ENV=${ENV} CONFIG_PATH=${CONFIG_PATH} go run ./cmd/api/
 
-build.local:
+build:
 	go build -o ./bin/ ./cmd/api/
 
-run.container:
-	docker run -p 8081:8081 --name novelism-backend-${ENV} novelism-backend:${ENV}
-
-build.container:
+build.docker:
 	docker build --tag novelism-backend:${ENV} .
 
 db.shell:
@@ -38,17 +31,3 @@ migrate.drop:
 
 migrate.version:
 	migrate -path ./migrations -database ${DB_CONN} version
-
-# e.g make run.task ENV="production" TASK=cmd/task/populate_user_status.go
-run.task:
-	ENV=${ENV} go run ${TASK}
-
-# Define variable for filtering images
-IMAGE_FILTER := "novelism"
-
-# Target to clean images with 'novelism' in name
-# Currently not working
-clean.images:
-  # Get a list of images matching the filter
-  IMG := $$(docker images --format '{{.Repository}}:{{.Tag}}' | grep $(IMAGE_FILTER))
-  echo $(IMG)

@@ -7,13 +7,13 @@ import (
 )
 
 type Repository struct {
-	User    IUserRepository
-	Book    IBookRepository
-	Chapter IChapterRepository
-	Content IContentRepository
+	User    UserQueries
+	Book    BookQueries
+	Chapter ChapterQueries
+	Content ContentQueries
 }
 
-func NewRepository(db *sqlx.DB) Repository {
+func New(db *sqlx.DB) Repository {
 	return Repository{
 		User: UserRepository{
 			DB: db,

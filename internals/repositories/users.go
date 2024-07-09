@@ -58,7 +58,7 @@ func (u *User) MatchPassword(plaintextPassword string) (bool, error) {
 }
 
 // USER repository
-type IUserRepository interface {
+type UserQueries interface {
 	Insert(user *User) error
 	Get(id int64) (*User, error)
 	Update(user *User) error

@@ -40,6 +40,7 @@ type ResetPasswordPayload struct {
 
 type LoginResponseData struct {
 	AccessToken services.SignedJwtResult `json:"accessToken"`
+	UserId      int                      `json:"userId"`
 }
 
 // Handler
@@ -72,6 +73,7 @@ func (r Router) Login(c echo.Context) error {
 		OK: true,
 		Data: LoginResponseData{
 			AccessToken: accessToken,
+			UserId:      int(user.ID),
 		},
 	})
 }

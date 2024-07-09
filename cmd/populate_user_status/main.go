@@ -6,6 +6,7 @@ import (
 	"log"
 
 	_ "github.com/lib/pq"
+	"github.com/spf13/viper"
 )
 
 /*
@@ -21,17 +22,17 @@ func main() {
 }
 
 func perform() error {
-	conf, err := config.LoadConfig()
+	err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config %v", err)
 	}
 	dbConfig := database.DBConfig{
-		MaxIdleConnections: conf.GetInt("database.max_db_conns"),
-		MaxOpenConnections: conf.GetInt("database.max_open_conns"),
-		MaxIdleTime:        conf.GetDuration("database.max_idle_time"),
+		MaxIdleConnections: viper.GetInt("database.max_db_conns"),
+		MaxOpenConnections: viper.GetInt("database.max_open_conns"),
+		MaxIdleTime:        viper.GetDuration("database.max_idle_time"),
 	}
 
-	dbInstance, err := database.OpenDB(conf.GetString("database.uri"), dbConfig)
+	dbInstance, err := database.OpenDB(viper.GetString("database.uri"), dbConfig)
 	if err != nil {
 		log.Fatalf("error open connection to database %v\n", err)
 	}

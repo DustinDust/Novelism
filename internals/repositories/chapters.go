@@ -28,7 +28,7 @@ type Chapter struct {
 	DeletedAt   *time.Time `db:"deleted_at" json:"deletedAt"`
 }
 
-type IChapterRepository interface {
+type ChapterQueries interface {
 	Insert(chapter *Chapter) error
 	Get(chapterNo int64, bookId int64) (*Chapter, error)
 	Update(chapter *Chapter) error
