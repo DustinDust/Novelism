@@ -1,18 +1,16 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"gin_stuff/internals/config"
-	"gin_stuff/internals/database"
-	"gin_stuff/internals/middlewares"
-	"gin_stuff/internals/repositories"
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
@@ -21,7 +19,7 @@ import (
 
 type Application struct {
 	EchoInstance *echo.Echo
-	DB           *sqlx.DB
+	DB           *pgx.Conn
 }
 
 func NewApplication() *Application {
@@ -92,12 +90,7 @@ func NewApplication() *Application {
 
 	// db configuration
 	dbUri := viper.GetString("database.uri")
-	dbConfig := database.DBConfig{
-		MaxIdleConnections: viper.GetInt("database.max_db_conns"),
-		MaxOpenConnections: viper.GetInt("database.max_open_conns"),
-		MaxIdleTime:        viper.GetDuration("database.max_idle_time"),
-	}
-	if dbInstance, err := database.OpenDB(dbUri, dbConfig); err != nil {
+	if dbInstance, err := OpenDB(); err != nil {
 		app.LogFatalf("Can't open connection to database: %v", err)
 	} else {
 		log.Printf("Connected to database at %s", strings.Split(dbUri, "@")[1])
@@ -118,14 +111,13 @@ func NewApplication() *Application {
 
 	// handle shut down of stuff
 	app.EchoInstance.Server.RegisterOnShutdown(func() {
-		err = app.DB.Close()
+		err = app.DB.Close(context.Background())
 		if err != nil {
 			loggerService.LogError(err, "fail to gracefully shutdown database connection")
 		}
 	})
 
-	repo := repositories.New(app.DB)
-	r := router.New(&repo, mailer, &loggerService)
+	r := router.New(mailer, &loggerService)
 	app.RegisterRoute(r)
 
 	return app
@@ -145,41 +137,17 @@ func (app *Application) LogInfof(format string, args ...interface{}) {
 
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
-	requireAccessToken := middlewares.NewJWTMiddleware("access")
-	requireUserVerification := middlewares.NewUserVerificationRequireMiddleware(r.Repository.User)
-	//gloabl prefix
-	api := app.EchoInstance.Group("/api")
-
-	// Authentication group
-	auth := api.Group("/auth")
-	auth.POST("/sign-in", r.Login)
-	auth.POST("/sign-up", r.Register)
-	auth.POST("/verify-email", r.VerifyEmail)
-	auth.POST("/resend-verification-mail", r.ResendVerificationEmail, requireAccessToken)
-	auth.POST("/forget-password", r.ForgetPassword)
-	auth.POST("/reset-password", r.ResetPassword)
-	auth.GET("/me", r.Me, requireAccessToken)
-
-	//book group
-	bookAPI := api.Group("/book")
-	bookAPI.GET("", r.FindBooks, requireAccessToken)
-	bookAPI.GET("/:id", r.GetBook)
-	bookAPI.POST("", r.CreateBook, requireAccessToken, requireUserVerification)
-	bookAPI.PATCH("/:id", r.UpdateBook, requireAccessToken, requireUserVerification)
-	bookAPI.DELETE("/:id", r.DeleteBook, requireAccessToken, requireUserVerification)
-
-	// chapter API
-	chapterAPI := bookAPI.Group("/:bookId/chapter")
-	chapterAPI.GET("", r.FindChapters)
-	chapterAPI.POST("", r.CreateChapter, requireAccessToken, requireUserVerification)
-	chapterAPI.PATCH("/:chapterNo", r.UpdateChapter, requireAccessToken, requireUserVerification)
-	chapterAPI.DELETE("/:chapterNo", r.DeleteChapter, requireAccessToken, requireUserVerification)
-
-	// chapter content
-	contentAPI := api.Group("/chapter/:chapterUID/content")
-	contentAPI.GET("", r.GetContent, requireAccessToken)
 }
 
 func (app Application) Run(addr string) error {
 	return app.EchoInstance.Start(addr)
+}
+
+func OpenDB() (*pgx.Conn, error) {
+	uri := viper.GetString("database.uri")
+	if pgxConn, err := pgx.Connect(context.Background(), uri); err != nil {
+		return nil, err
+	} else {
+		return pgxConn, nil
+	}
 }

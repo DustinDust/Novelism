@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS books (
 	user_id INT REFERENCES users(id),
 	title TEXT,
 	description TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP
 	-- genres
 	-- tags

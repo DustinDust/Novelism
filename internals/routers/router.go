@@ -1,109 +1,80 @@
 package router
 
 import (
-	"fmt"
-	"gin_stuff/internals/repositories"
 	"gin_stuff/internals/services"
-	"io"
-	"log"
 	"net/http"
-	"os"
+	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/spf13/viper"
 )
 
 type Router struct {
-	Repository    *repositories.Repository
 	MailerService *services.MailerService
 	JwtService    *services.JWTService
 	LoggerService *services.LoggerService
 }
 
-func New(repository *repositories.Repository, mailerService *services.MailerService, loggerService *services.LoggerService) Router {
+func New(mailerService *services.MailerService, loggerService *services.LoggerService) Router {
 	return Router{
-		Repository:    repository,
 		MailerService: mailerService,
 		LoggerService: loggerService,
 		JwtService:    &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
 	}
 }
 
+type Filter struct {
+	Page         int
+	PageSize     int
+	Sort         string
+	SortSafeList []string
+}
+
+type Metadata struct {
+	CurrentPage  int `json:"currentPage,omitempty"`
+	PageSize     int `json:"pageSize,omitempty"`
+	TotalRecords int `json:"totalRecords"`
+}
+
+func CalculateMetadata(total, pageSize, page int) Metadata {
+	if total == 0 {
+		return Metadata{}
+	}
+	return Metadata{
+		CurrentPage:  page,
+		PageSize:     pageSize,
+		TotalRecords: total,
+	}
+}
+
+func (f Filter) SortColumn() string {
+	for _, safeValue := range f.SortSafeList {
+		if f.Sort == safeValue {
+			return strings.TrimPrefix(f.Sort, "-")
+		}
+	}
+	panic("unsafe sort parameter: " + f.Sort)
+}
+
+func (f Filter) SortDirection() string {
+	if strings.HasPrefix(f.Sort, "-") {
+		return "DESC"
+	} else {
+		return "ASC"
+	}
+}
+
+func (f Filter) Limit() int {
+	return f.PageSize
+}
+
+func (f Filter) Offset() int {
+	return f.PageSize * (f.Page - 1)
+}
+
 type Response[T interface{}] struct {
-	OK       bool                  `json:"ok"`
-	Data     T                     `json:"data"`
-	Metadata repositories.Metadata `json:"metadata"`
-}
-
-// route handler to test runtime config
-func (r Router) GetConfig(c echo.Context) error {
-	key := c.Param("key")
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	user, err := r.Repository.User.Get(int64(userId))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	if len(key) <= 0 {
-		return echo.NewHTTPError(http.StatusBadRequest)
-	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"user": user,
-		key:    viper.GetViper().Get(key),
-	})
-}
-
-// route handler to test email functionality
-func (r Router) SendTestMail(c echo.Context) error {
-	mailerInfo := struct {
-		To    string `json:"to"`
-		Title string `json:"title"`
-		Text  string `json:"text"`
-	}{}
-	if err := c.Bind(&mailerInfo); err != nil {
-		log.Printf("Error binding body %v", err)
-		return r.badRequestError(err)
-	}
-	mail := services.Mail{
-		From:    "no-reply@novelism.com",
-		To:      mailerInfo.To,
-		Subject: mailerInfo.Title,
-		Content: mailerInfo.Text,
-	}
-	if err := r.MailerService.Perform(&mail); err != nil {
-		log.Println(err)
-		return r.serverError(err)
-	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok": true,
-	})
-}
-
-func (r Router) TestFileUpload(c echo.Context) error {
-	name := c.FormValue("name")
-	file, err := c.FormFile("image")
-	if err != nil {
-		return r.serverError(err)
-	}
-	src, err := file.Open()
-	if err != nil {
-		return r.serverError(fmt.Errorf("first check: %+v", err))
-	}
-	dst, err := os.Create(fmt.Sprintf("%s-%s", name, file.Filename))
-	if err != nil {
-		return r.serverError(fmt.Errorf("second check: %+v", err))
-	}
-	defer dst.Close()
-	if _, err = io.Copy(dst, src); err != nil {
-		return r.serverError(fmt.Errorf("third check: %+v", err))
-	}
-	return c.JSON(200, Response[string]{
-		OK:   true,
-		Data: file.Filename,
-	})
+	OK       bool     `json:"ok"`
+	Data     T        `json:"data"`
+	Metadata Metadata `json:"metadata"`
 }
 
 // return http errors
