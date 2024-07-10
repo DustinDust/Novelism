@@ -2,7 +2,6 @@ package services
 
 import (
 	"gin_stuff/internals/utils"
-	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -69,7 +68,7 @@ func (j JWTService) SignRefreshToken(claims interface{}) (SignedJwtResult, error
 func (j JWTService) RetrieveUserIdFromContext(c echo.Context) (int, error) {
 	userId, ok := c.Get("user").(int)
 	if !ok {
-		return -1, echo.NewHTTPError(http.StatusInternalServerError, utils.ErrInvalidContext())
+		return -1, utils.ErrInvalidContext()
 	}
 
 	return userId, nil
@@ -83,7 +82,7 @@ func (j JWTService) verifyToken(tokenString string, secret string) (jwt.MapClaim
 		return nil, err
 	}
 	if !token.Valid {
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, utils.ErrorInvalidToken())
+		return nil, utils.ErrorInvalidToken()
 	}
 	return token.Claims.(jwt.MapClaims), nil
 }

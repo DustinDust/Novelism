@@ -8,7 +8,6 @@ require (
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/labstack/echo-jwt/v4 v4.2.0
 	github.com/labstack/echo/v4 v4.11.1
-	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.31.0
 	github.com/spf13/viper v1.16.0
 	github.com/wneessen/go-mail v0.4.0

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gin_stuff/internals/config"
+	"gin_stuff/internals/data"
 	router "gin_stuff/internals/routers"
 	"gin_stuff/internals/services"
 	"log"
@@ -118,7 +119,8 @@ func NewApplication() *Application {
 		}
 	})
 
-	r := router.New(mailer, &loggerService)
+	queries := data.New(app.DB)
+	r := router.New(queries, mailer, &loggerService)
 	app.RegisterRoute(r)
 
 	return app
@@ -126,6 +128,9 @@ func NewApplication() *Application {
 
 // Register the routes in server
 func (app Application) RegisterRoute(r router.Router) {
+	api := app.EchoInstance.Group("/api")
+	auth := api.Group("/auth")
+	auth.POST("/sign-in", r.Login)
 }
 
 func (app Application) Run() error {

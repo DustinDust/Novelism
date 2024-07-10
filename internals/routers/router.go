@@ -1,6 +1,7 @@
 package router
 
 import (
+	"gin_stuff/internals/data"
 	"gin_stuff/internals/services"
 	"net/http"
 	"strings"
@@ -9,13 +10,15 @@ import (
 )
 
 type Router struct {
+	Queries       *data.Queries
 	MailerService *services.MailerService
 	JwtService    *services.JWTService
 	LoggerService *services.LoggerService
 }
 
-func New(mailerService *services.MailerService, loggerService *services.LoggerService) Router {
+func New(queries *data.Queries, mailerService *services.MailerService, loggerService *services.LoggerService) Router {
 	return Router{
+		Queries:       queries,
 		MailerService: mailerService,
 		LoggerService: loggerService,
 		JwtService:    &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
