@@ -35,7 +35,7 @@ type Filter struct {
 type Metadata struct {
 	CurrentPage  int `json:"currentPage,omitempty"`
 	PageSize     int `json:"pageSize,omitempty"`
-	TotalRecords int `json:"totalRecords"`
+	TotalRecords int `json:"totalRecords,omitempty"`
 }
 
 func CalculateMetadata(total, pageSize, page int) Metadata {
@@ -77,7 +77,7 @@ func (f Filter) Offset() int {
 type Response[T interface{}] struct {
 	OK       bool     `json:"ok"`
 	Data     T        `json:"data"`
-	Metadata Metadata `json:"metadata"`
+	Metadata Metadata `json:"metadata,omitempty"`
 }
 
 // return http errors

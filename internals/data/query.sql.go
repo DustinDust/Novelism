@@ -7,7 +7,15 @@ package data
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type BulkInsertBooksParams struct {
+	UserID      pgtype.Int4 `json:"user_id"`
+	Title       pgtype.Text `json:"title"`
+	Description pgtype.Text `json:"description"`
+}
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, username, password_hash, email, created_at, updated_at, status, verified, verification_token, password_reset_token, first_name, last_name, date_of_birth, gender, profile_picture FROM users
@@ -72,6 +80,76 @@ WHERE username = $1 LIMIT 1
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PasswordHash,
+		&i.Email,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Status,
+		&i.Verified,
+		&i.VerificationToken,
+		&i.PasswordResetToken,
+		&i.FirstName,
+		&i.LastName,
+		&i.DateOfBirth,
+		&i.Gender,
+		&i.ProfilePicture,
+	)
+	return i, err
+}
+
+const insertUser = `-- name: InsertUser :one
+INSERT INTO users (
+    username,
+    password_hash,
+    email,
+    status,
+    verified,
+    verification_token,
+    password_reset_token,
+    first_name,
+    last_name,
+    date_of_birth,
+    gender,
+    profile_picture
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, username, password_hash, email, created_at, updated_at, status, verified, verification_token, password_reset_token, first_name, last_name, date_of_birth, gender, profile_picture
+`
+
+type InsertUserParams struct {
+	Username           string         `json:"username"`
+	PasswordHash       string         `json:"password_hash"`
+	Email              string         `json:"email"`
+	Status             NullUserStatus `json:"status"`
+	Verified           pgtype.Bool    `json:"verified"`
+	VerificationToken  pgtype.Text    `json:"verification_token"`
+	PasswordResetToken pgtype.Text    `json:"password_reset_token"`
+	FirstName          pgtype.Text    `json:"first_name"`
+	LastName           pgtype.Text    `json:"last_name"`
+	DateOfBirth        pgtype.Date    `json:"date_of_birth"`
+	Gender             pgtype.Text    `json:"gender"`
+	ProfilePicture     pgtype.Text    `json:"profile_picture"`
+}
+
+func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, insertUser,
+		arg.Username,
+		arg.PasswordHash,
+		arg.Email,
+		arg.Status,
+		arg.Verified,
+		arg.VerificationToken,
+		arg.PasswordResetToken,
+		arg.FirstName,
+		arg.LastName,
+		arg.DateOfBirth,
+		arg.Gender,
+		arg.ProfilePicture,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,

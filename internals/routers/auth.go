@@ -1,10 +1,12 @@
 package router
 
 import (
+	"errors"
 	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,7 +21,12 @@ func (r Router) Login(c echo.Context) error {
 	}
 	user, err := r.Queries.GetUserByUsername(c.Request().Context(), payload.Username)
 	if err != nil {
-		return r.serverError(err)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return r.notFoundError(err)
+		default:
+			return r.serverError(err)
+		}
 	}
 	crypt := services.NewCryptoService()
 	if err := crypt.Match(payload.Password, user.PasswordHash); err != nil {
