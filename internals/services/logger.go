@@ -10,8 +10,8 @@ type LoggerService struct {
 	Logger zerolog.Logger
 }
 
-func NewLoggerService(out io.Writer) LoggerService {
-	return LoggerService{
+func NewLoggerService(out io.Writer) *LoggerService {
+	return &LoggerService{
 		Logger: zerolog.New(out),
 	}
 }

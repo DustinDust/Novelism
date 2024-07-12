@@ -3,26 +3,42 @@ package router
 import (
 	"gin_stuff/internals/data"
 	"gin_stuff/internals/services"
+	"gin_stuff/internals/utils"
 	"net/http"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/spf13/viper"
 )
 
 type Router struct {
-	Queries       *data.Queries
-	MailerService *services.MailerService
-	JwtService    *services.JWTService
-	LoggerService *services.LoggerService
+	db      *pgx.Conn
+	queries *data.Queries
+
+	mailer    *services.MailerService
+	jwt       *services.JWTService
+	validator *utils.Validator
 }
 
-func New(queries *data.Queries, mailerService *services.MailerService, loggerService *services.LoggerService) Router {
-	return Router{
-		Queries:       queries,
-		MailerService: mailerService,
-		LoggerService: loggerService,
-		JwtService:    &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
+func New(dbtx *pgx.Conn) (*Router, error) {
+	mailer, err := services.NewMailerService(services.MailerSMTPConfig{
+		Host:     viper.GetString("mailer.host"),
+		Port:     viper.GetInt64("mailer.port"),
+		Login:    viper.GetString("mailer.login"),
+		Password: viper.GetString("mailer.password"),
+		Timeout:  viper.GetDuration("mailer.timeout"),
+	})
+	if err != nil {
+		return nil, err
 	}
+	return &Router{
+		db:        dbtx,
+		queries:   data.New(dbtx),
+		mailer:    mailer,
+		jwt:       &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
+		validator: utils.NewValidator(),
+	}, nil
 }
 
 type Filter struct {

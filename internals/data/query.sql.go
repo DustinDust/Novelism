@@ -101,6 +101,37 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	return i, err
 }
 
+const insertBook = `-- name: InsertBook :one
+INSERT INTO books (
+    user_id,
+    title,
+    description
+) VALUES (
+    $1, $2, $3
+) RETURNING id, user_id, title, description, created_at, updated_at, deleted_at
+`
+
+type InsertBookParams struct {
+	UserID      pgtype.Int4 `json:"user_id"`
+	Title       pgtype.Text `json:"title"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (Book, error) {
+	row := q.db.QueryRow(ctx, insertBook, arg.UserID, arg.Title, arg.Description)
+	var i Book
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const insertUser = `-- name: InsertUser :one
 INSERT INTO users (
     username,
@@ -169,4 +200,53 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		&i.ProfilePicture,
 	)
 	return i, err
+}
+
+const updateUser = `-- name: UpdateUser :exec
+UPDATE users
+SET
+    username=$2,
+    password_hash=$3,
+    email=$4,
+    status=$5,
+    verified=$6,
+    verification_token=$7,
+    password_reset_token=$8,
+    first_name=$8,
+    last_name=$9,
+    date_of_birth=$9,
+    gender=$10,
+    profile_picture=$11
+WHERE id=$1
+`
+
+type UpdateUserParams struct {
+	ID                 int32          `json:"id"`
+	Username           string         `json:"username"`
+	PasswordHash       string         `json:"password_hash"`
+	Email              string         `json:"email"`
+	Status             NullUserStatus `json:"status"`
+	Verified           pgtype.Bool    `json:"verified"`
+	VerificationToken  pgtype.Text    `json:"verification_token"`
+	PasswordResetToken pgtype.Text    `json:"password_reset_token"`
+	LastName           pgtype.Text    `json:"last_name"`
+	Gender             pgtype.Text    `json:"gender"`
+	ProfilePicture     pgtype.Text    `json:"profile_picture"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
+	_, err := q.db.Exec(ctx, updateUser,
+		arg.ID,
+		arg.Username,
+		arg.PasswordHash,
+		arg.Email,
+		arg.Status,
+		arg.Verified,
+		arg.VerificationToken,
+		arg.PasswordResetToken,
+		arg.LastName,
+		arg.Gender,
+		arg.ProfilePicture,
+	)
+	return err
 }

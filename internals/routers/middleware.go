@@ -1,4 +1,4 @@
-package middlewares
+package router
 
 import (
 	"errors"
@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// @param{kind}: "access"
-func NewJWTMiddleware(kind string) echo.MiddlewareFunc {
-	jwtSecret := viper.GetViper().GetString(fmt.Sprintf("jwt.%s_secret", kind))
+// @param{strategy}: "access"
+func (r Router) JWTMiddleware(strategy string) echo.MiddlewareFunc {
+	jwtSecret := viper.GetString(fmt.Sprintf("jwt.%s_secret", strategy))
 
 	return echojwt.WithConfig(echojwt.Config{
 		ContextKey:  "user",
@@ -25,7 +25,7 @@ func NewJWTMiddleware(kind string) echo.MiddlewareFunc {
 			})
 			token, err := jwt.ParseWithClaims(auth, customClaims, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, errors.New("unexpected signing method")
+					return nil, r.forbiddenError(errors.New("unexpected signing method"))
 				}
 				return []byte(jwtSecret), nil
 			})
@@ -37,7 +37,7 @@ func NewJWTMiddleware(kind string) echo.MiddlewareFunc {
 				jwt.RegisteredClaims
 			})
 			if !ok {
-				return nil, errors.New("unexpected jwt format")
+				return nil, r.forbiddenError(errors.New("unexpected jwt format"))
 			}
 			return content.Claims, nil
 		},
