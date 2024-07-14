@@ -17,6 +17,74 @@ type BulkInsertBooksParams struct {
 	Description pgtype.Text `json:"description"`
 }
 
+const countBooksByUserId = `-- name: CountBooksByUserId :one
+SELECT count(*) FROM BOOKS WHERE user_id = $1
+`
+
+func (q *Queries) CountBooksByUserId(ctx context.Context, userID pgtype.Int4) (int64, error) {
+	row := q.db.QueryRow(ctx, countBooksByUserId, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const findBooksByUserId = `-- name: FindBooksByUserId :many
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3
+`
+
+type FindBooksByUserIdParams struct {
+	UserID pgtype.Int4 `json:"user_id"`
+	Limit  int32       `json:"limit"`
+	Offset int32       `json:"offset"`
+}
+
+func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdParams) ([]Book, error) {
+	rows, err := q.db.Query(ctx, findBooksByUserId, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Book
+	for rows.Next() {
+		var i Book
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBookById = `-- name: GetBookById :one
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at FROM books WHERE id=$1 LIMIT 1
+`
+
+func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
+	row := q.db.QueryRow(ctx, getBookById, id)
+	var i Book
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, username, password_hash, email, created_at, updated_at, status, verified, verification_token, password_reset_token, first_name, last_name, date_of_birth, gender, profile_picture FROM users
 WHERE email = $1 LIMIT 1

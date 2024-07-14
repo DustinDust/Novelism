@@ -63,3 +63,12 @@ INSERT INTO books (
 ) VALUES (
     $1, $2, $3
 ) RETURNING *;
+
+-- name: GetBookById :one
+SELECT * FROM books WHERE id=$1 LIMIT 1;
+
+-- name: FindBooksByUserId :many
+SELECT * FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3;
+
+-- name: CountBooksByUserId :one
+SELECT count(*) FROM BOOKS WHERE user_id = $1;

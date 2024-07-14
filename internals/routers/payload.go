@@ -16,11 +16,11 @@ type SignUpPayload struct {
 
 // --- RESPONSE DATA
 type SignInData struct {
-	AccessToken string    `json:"accessToken"`
+	AccessToken string    `json:"accessToken,omitempty"`
 	User        data.User `json:"user"`
 }
 
 type SignUpData struct {
-	AccessToken string    `json:"accessToken"`
+	AccessToken string    `json:"accessToken,omitempty"`
 	User        data.User `json:"user"`
 }

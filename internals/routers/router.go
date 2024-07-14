@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"gin_stuff/internals/data"
 	"gin_stuff/internals/services"
 	"gin_stuff/internals/utils"
@@ -42,9 +43,9 @@ func New(dbtx *pgx.Conn) (*Router, error) {
 }
 
 type Filter struct {
-	Page         int
-	PageSize     int
-	Sort         string
+	Page         int    `query:"page"`
+	PageSize     int    `query:"pageSize"`
+	Sort         string `query:"sort"`
 	SortSafeList []string
 }
 
@@ -76,10 +77,14 @@ func (f Filter) SortColumn() string {
 
 func (f Filter) SortDirection() string {
 	if strings.HasPrefix(f.Sort, "-") {
-		return "DESC"
+		return "desc"
 	} else {
-		return "ASC"
+		return "asc"
 	}
+}
+
+func (f Filter) SortString() string {
+	return fmt.Sprintf("%s %s", f.SortColumn(), f.SortDirection())
 }
 
 func (f Filter) Limit() int {

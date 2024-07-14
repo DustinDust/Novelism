@@ -87,7 +87,7 @@ func NewApplication() *Application {
 	app.engine.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 	}))
-	app.engine.Static("/", "assets")
+	app.engine.Static("", "assets")
 
 	// db configuration
 	dbUri := viper.GetString("database.uri")
@@ -119,7 +119,12 @@ func NewApplication() *Application {
 func (app Application) RegisterRoute(r *router.Router) {
 	api := app.engine.Group("/api")
 	auth := api.Group("/auth")
+	book := api.Group("/book")
+
 	auth.POST("/sign-in", r.SignIn)
+	auth.POST("/sign-up", r.SignUp)
+
+	book.GET("", r.GetBooks, r.JWTMiddleware("access"))
 }
 
 func (app Application) Run() error {

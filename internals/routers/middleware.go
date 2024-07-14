@@ -16,7 +16,7 @@ func (r Router) JWTMiddleware(strategy string) echo.MiddlewareFunc {
 
 	return echojwt.WithConfig(echojwt.Config{
 		ContextKey:  "user",
-		TokenLookup: "header:Authorization:Bearer ",
+		TokenLookup: "header:Authorization:Bearer ,cookie:novelism_auth",
 		SigningKey:  []byte(jwtSecret),
 		ParseTokenFunc: func(c echo.Context, auth string) (interface{}, error) {
 			customClaims := new(struct {
@@ -39,7 +39,12 @@ func (r Router) JWTMiddleware(strategy string) echo.MiddlewareFunc {
 			if !ok {
 				return nil, r.forbiddenError(errors.New("unexpected jwt format"))
 			}
-			return content.Claims, nil
+			// content.Claims is userId
+			user, err := r.queries.GetUserByID(c.Request().Context(), int32(content.Claims))
+			if err != nil {
+				return nil, r.forbiddenError(err)
+			}
+			return user, nil
 		},
 	})
 }
