@@ -14,9 +14,6 @@ import (
 
 func (r Router) SignIn(c echo.Context) error {
 	payload := SignInPayload{}
-	if err := c.Bind(&payload); err != nil {
-		return r.badRequestError(err)
-	}
 	if err := r.bindAndValidatePayload(c, &payload); err != nil {
 		return err
 	}
@@ -50,9 +47,6 @@ func (r Router) SignIn(c echo.Context) error {
 
 func (r Router) SignUp(c echo.Context) error {
 	payload := SignUpPayload{}
-	if err := c.Bind(&payload); err != nil {
-		return r.badRequestError(err)
-	}
 	if err := r.bindAndValidatePayload(c, &payload); err != nil {
 		return err
 	}
