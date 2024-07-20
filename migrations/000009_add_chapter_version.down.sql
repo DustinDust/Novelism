@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS chapter_versions;
+DROP TABLE IF EXISTS content_versions;

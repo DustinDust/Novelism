@@ -2,7 +2,9 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
@@ -36,8 +38,13 @@ func ErrorInvalidRouteParam() error {
 	return NewError("invalid route parameters")
 }
 
-func ErrorForbiddenResource() error {
-	return NewError("permissions required to access this resource(s)")
+func ErrorForbiddenResource(resources ...string) error {
+	if len(resources) == 0 {
+		return NewError("permissions required to access this resource(s)")
+	} else {
+		r := strings.Join(resources, ", ")
+		return NewError(fmt.Sprintf("permission required: %s", r))
+	}
 }
 
 func ErrorInvalidQueryParams() error {

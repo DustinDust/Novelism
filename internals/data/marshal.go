@@ -42,3 +42,10 @@ func (u User) MarshalJSON() ([]byte, error) {
 		ProfilePicture: u.ProfilePicture,
 	})
 }
+
+func (status NullUserStatus) MarshalJSON() ([]byte, error) {
+	if !status.Valid {
+		return nil, nil
+	}
+	return []byte(status.UserStatus), nil
+}

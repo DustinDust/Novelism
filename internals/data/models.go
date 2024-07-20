@@ -55,57 +55,58 @@ func (ns NullUserStatus) Value() (driver.Value, error) {
 }
 
 type Book struct {
-	ID          int32            `json:"id"`
-	UserID      pgtype.Int4      `json:"user_id"`
-	Title       pgtype.Text      `json:"title"`
-	Description pgtype.Text      `json:"description"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	DeletedAt   pgtype.Timestamp `json:"deleted_at"`
+	ID          int32            `db:"id" json:"id"`
+	UserID      pgtype.Int4      `db:"user_id" json:"user_id"`
+	Title       pgtype.Text      `db:"title" json:"title"`
+	Description pgtype.Text      `db:"description" json:"description"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+	DeletedAt   pgtype.Timestamp `db:"deleted_at" json:"deleted_at"`
+	Cover       pgtype.Text      `db:"cover" json:"cover"`
 }
 
 type Chapter struct {
-	ID          int32            `json:"id"`
-	BookID      pgtype.Int4      `json:"book_id"`
-	AuthorID    pgtype.Int4      `json:"author_id"`
-	Title       pgtype.Text      `json:"title"`
-	Description pgtype.Text      `json:"description"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	DeletedAt   pgtype.Timestamp `json:"deleted_at"`
-}
-
-type ChapterVersion struct {
-	ID          int32            `json:"id"`
-	ContentID   int32            `json:"content_id"`
-	TextContent string           `json:"text_content"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UserID      int32            `json:"user_id"`
+	ID          int32            `db:"id" json:"id"`
+	BookID      pgtype.Int4      `db:"book_id" json:"book_id"`
+	AuthorID    pgtype.Int4      `db:"author_id" json:"author_id"`
+	Title       pgtype.Text      `db:"title" json:"title"`
+	Description pgtype.Text      `db:"description" json:"description"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+	DeletedAt   pgtype.Timestamp `db:"deleted_at" json:"deleted_at"`
 }
 
 type Content struct {
-	ID          int32            `json:"id"`
-	ChapterID   pgtype.Int4      `json:"chapter_id"`
-	TextContent pgtype.Text      `json:"text_content"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	DeletedAt   pgtype.Timestamp `json:"deleted_at"`
+	ID          int32            `db:"id" json:"id"`
+	ChapterID   pgtype.Int4      `db:"chapter_id" json:"chapter_id"`
+	TextContent pgtype.Text      `db:"text_content" json:"text_content"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+	DeletedAt   pgtype.Timestamp `db:"deleted_at" json:"deleted_at"`
+}
+
+type ContentVersion struct {
+	ID          int32            `db:"id" json:"id"`
+	ContentID   int32            `db:"content_id" json:"content_id"`
+	TextContent string           `db:"text_content" json:"text_content"`
+	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UserID      int32            `db:"user_id" json:"user_id"`
 }
 
 type User struct {
-	ID                 int32            `json:"id"`
-	Username           string           `json:"username"`
-	PasswordHash       string           `json:"password_hash"`
-	Email              string           `json:"email"`
-	CreatedAt          pgtype.Timestamp `json:"created_at"`
-	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
-	Status             NullUserStatus   `json:"status"`
-	Verified           pgtype.Bool      `json:"verified"`
-	VerificationToken  pgtype.Text      `json:"verification_token"`
-	PasswordResetToken pgtype.Text      `json:"password_reset_token"`
-	FirstName          pgtype.Text      `json:"first_name"`
-	LastName           pgtype.Text      `json:"last_name"`
-	DateOfBirth        pgtype.Date      `json:"date_of_birth"`
-	Gender             pgtype.Text      `json:"gender"`
-	ProfilePicture     pgtype.Text      `json:"profile_picture"`
+	ID                 int32            `db:"id" json:"id"`
+	Username           string           `db:"username" json:"username"`
+	PasswordHash       string           `db:"password_hash" json:"password_hash"`
+	Email              string           `db:"email" json:"email"`
+	CreatedAt          pgtype.Timestamp `db:"created_at" json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+	Status             NullUserStatus   `db:"status" json:"status"`
+	Verified           pgtype.Bool      `db:"verified" json:"verified"`
+	VerificationToken  pgtype.Text      `db:"verification_token" json:"verification_token"`
+	PasswordResetToken pgtype.Text      `db:"password_reset_token" json:"password_reset_token"`
+	FirstName          pgtype.Text      `db:"first_name" json:"first_name"`
+	LastName           pgtype.Text      `db:"last_name" json:"last_name"`
+	DateOfBirth        pgtype.Date      `db:"date_of_birth" json:"date_of_birth"`
+	Gender             pgtype.Text      `db:"gender" json:"gender"`
+	ProfilePicture     pgtype.Text      `db:"profile_picture" json:"profile_picture"`
 }

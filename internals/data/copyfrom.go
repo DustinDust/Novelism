@@ -31,6 +31,7 @@ func (r iteratorForBulkInsertBooks) Values() ([]interface{}, error) {
 	return []interface{}{
 		r.rows[0].UserID,
 		r.rows[0].Title,
+		r.rows[0].Cover,
 		r.rows[0].Description,
 	}, nil
 }
@@ -40,5 +41,5 @@ func (r iteratorForBulkInsertBooks) Err() error {
 }
 
 func (q *Queries) BulkInsertBooks(ctx context.Context, arg []BulkInsertBooksParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"books"}, []string{"user_id", "title", "description"}, &iteratorForBulkInsertBooks{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"books"}, []string{"user_id", "title", "cover", "description"}, &iteratorForBulkInsertBooks{rows: arg})
 }

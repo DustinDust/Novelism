@@ -24,3 +24,13 @@ type SignUpData struct {
 	AccessToken string    `json:"accessToken,omitempty"`
 	User        data.User `json:"user"`
 }
+
+type InsertBookPayload struct {
+	Title       string `json:"title" validate:"required"`
+	Description string `json:"description" validate:"required"`
+}
+
+type UpdateBookPayload struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}

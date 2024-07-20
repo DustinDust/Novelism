@@ -38,11 +38,11 @@ SET
     verified=$6,
     verification_token=$7,
     password_reset_token=$8,
-    first_name=$8,
-    last_name=$9,
-    date_of_birth=$9,
-    gender=$10,
-    profile_picture=$11
+    first_name=$9,
+    last_name=$10,
+    date_of_birth=$11,
+    gender=$12,
+    profile_picture=$13
 WHERE id=$1;
 
 
@@ -50,18 +50,20 @@ WHERE id=$1;
 INSERT INTO books (
     user_id,
     title,
+    cover,
     description
 ) VALUES(
-    $1, $2, $3
+    $1, $2, $3, $4
 );
 
 -- name: InsertBook :one
 INSERT INTO books (
     user_id,
     title,
-    description
+    description,
+    cover
 ) VALUES (
-    $1, $2, $3
+    $1, $2, $3, $4
 ) RETURNING *;
 
 -- name: GetBookById :one
@@ -72,3 +74,28 @@ SELECT * FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3;
 
 -- name: CountBooksByUserId :one
 SELECT count(*) FROM BOOKS WHERE user_id = $1;
+
+-- name: UpdateBook :exec
+UPDATE books
+SET
+    title = $2,
+    description = $3,
+    updated_at = $4,
+    cover = $5
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: DeleteBook :exec
+UPDATE books
+SET
+    deleted_at = now()
+WHERE id = $1;
+
+-- name: FindChaptersByBookId :many
+SELECT * FROM chapters WHERE chapters.book_id = $1 AND deleted_at IS NULL;
+
+-- name: InsertChapter :one
+INSERT INTO chapters (
+    book_id, author_id, title, description
+) VALUES (
+    $1, $2, $3, $4
+) RETURNING *;

@@ -12,9 +12,10 @@ import (
 )
 
 type BulkInsertBooksParams struct {
-	UserID      pgtype.Int4 `json:"user_id"`
-	Title       pgtype.Text `json:"title"`
-	Description pgtype.Text `json:"description"`
+	UserID      pgtype.Int4 `db:"user_id" json:"user_id"`
+	Title       pgtype.Text `db:"title" json:"title"`
+	Cover       pgtype.Text `db:"cover" json:"cover"`
+	Description pgtype.Text `db:"description" json:"description"`
 }
 
 const countBooksByUserId = `-- name: CountBooksByUserId :one
@@ -28,14 +29,26 @@ func (q *Queries) CountBooksByUserId(ctx context.Context, userID pgtype.Int4) (i
 	return count, err
 }
 
+const deleteBook = `-- name: DeleteBook :exec
+UPDATE books
+SET
+    deleted_at = now()
+WHERE id = $1
+`
+
+func (q *Queries) DeleteBook(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteBook, id)
+	return err
+}
+
 const findBooksByUserId = `-- name: FindBooksByUserId :many
-SELECT id, user_id, title, description, created_at, updated_at, deleted_at FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3
 `
 
 type FindBooksByUserIdParams struct {
-	UserID pgtype.Int4 `json:"user_id"`
-	Limit  int32       `json:"limit"`
-	Offset int32       `json:"offset"`
+	UserID pgtype.Int4 `db:"user_id" json:"user_id"`
+	Limit  int32       `db:"limit" json:"limit"`
+	Offset int32       `db:"offset" json:"offset"`
 }
 
 func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdParams) ([]Book, error) {
@@ -55,6 +68,40 @@ func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.Cover,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findChaptersByBookId = `-- name: FindChaptersByBookId :many
+SELECT id, book_id, author_id, title, description, created_at, updated_at, deleted_at FROM chapters WHERE chapters.book_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) FindChaptersByBookId(ctx context.Context, bookID pgtype.Int4) ([]Chapter, error) {
+	rows, err := q.db.Query(ctx, findChaptersByBookId, bookID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Chapter
+	for rows.Next() {
+		var i Chapter
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookID,
+			&i.AuthorID,
+			&i.Title,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -67,7 +114,7 @@ func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdPa
 }
 
 const getBookById = `-- name: GetBookById :one
-SELECT id, user_id, title, description, created_at, updated_at, deleted_at FROM books WHERE id=$1 LIMIT 1
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover FROM books WHERE id=$1 LIMIT 1
 `
 
 func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
@@ -81,6 +128,7 @@ func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.Cover,
 	)
 	return i, err
 }
@@ -173,24 +221,68 @@ const insertBook = `-- name: InsertBook :one
 INSERT INTO books (
     user_id,
     title,
-    description
+    description,
+    cover
 ) VALUES (
-    $1, $2, $3
-) RETURNING id, user_id, title, description, created_at, updated_at, deleted_at
+    $1, $2, $3, $4
+) RETURNING id, user_id, title, description, created_at, updated_at, deleted_at, cover
 `
 
 type InsertBookParams struct {
-	UserID      pgtype.Int4 `json:"user_id"`
-	Title       pgtype.Text `json:"title"`
-	Description pgtype.Text `json:"description"`
+	UserID      pgtype.Int4 `db:"user_id" json:"user_id"`
+	Title       pgtype.Text `db:"title" json:"title"`
+	Description pgtype.Text `db:"description" json:"description"`
+	Cover       pgtype.Text `db:"cover" json:"cover"`
 }
 
 func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (Book, error) {
-	row := q.db.QueryRow(ctx, insertBook, arg.UserID, arg.Title, arg.Description)
+	row := q.db.QueryRow(ctx, insertBook,
+		arg.UserID,
+		arg.Title,
+		arg.Description,
+		arg.Cover,
+	)
 	var i Book
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
+		&i.Title,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.Cover,
+	)
+	return i, err
+}
+
+const insertChapter = `-- name: InsertChapter :one
+INSERT INTO chapters (
+    book_id, author_id, title, description
+) VALUES (
+    $1, $2, $3, $4
+) RETURNING id, book_id, author_id, title, description, created_at, updated_at, deleted_at
+`
+
+type InsertChapterParams struct {
+	BookID      pgtype.Int4 `db:"book_id" json:"book_id"`
+	AuthorID    pgtype.Int4 `db:"author_id" json:"author_id"`
+	Title       pgtype.Text `db:"title" json:"title"`
+	Description pgtype.Text `db:"description" json:"description"`
+}
+
+func (q *Queries) InsertChapter(ctx context.Context, arg InsertChapterParams) (Chapter, error) {
+	row := q.db.QueryRow(ctx, insertChapter,
+		arg.BookID,
+		arg.AuthorID,
+		arg.Title,
+		arg.Description,
+	)
+	var i Chapter
+	err := row.Scan(
+		&i.ID,
+		&i.BookID,
+		&i.AuthorID,
 		&i.Title,
 		&i.Description,
 		&i.CreatedAt,
@@ -220,18 +312,18 @@ INSERT INTO users (
 `
 
 type InsertUserParams struct {
-	Username           string         `json:"username"`
-	PasswordHash       string         `json:"password_hash"`
-	Email              string         `json:"email"`
-	Status             NullUserStatus `json:"status"`
-	Verified           pgtype.Bool    `json:"verified"`
-	VerificationToken  pgtype.Text    `json:"verification_token"`
-	PasswordResetToken pgtype.Text    `json:"password_reset_token"`
-	FirstName          pgtype.Text    `json:"first_name"`
-	LastName           pgtype.Text    `json:"last_name"`
-	DateOfBirth        pgtype.Date    `json:"date_of_birth"`
-	Gender             pgtype.Text    `json:"gender"`
-	ProfilePicture     pgtype.Text    `json:"profile_picture"`
+	Username           string         `db:"username" json:"username"`
+	PasswordHash       string         `db:"password_hash" json:"password_hash"`
+	Email              string         `db:"email" json:"email"`
+	Status             NullUserStatus `db:"status" json:"status"`
+	Verified           pgtype.Bool    `db:"verified" json:"verified"`
+	VerificationToken  pgtype.Text    `db:"verification_token" json:"verification_token"`
+	PasswordResetToken pgtype.Text    `db:"password_reset_token" json:"password_reset_token"`
+	FirstName          pgtype.Text    `db:"first_name" json:"first_name"`
+	LastName           pgtype.Text    `db:"last_name" json:"last_name"`
+	DateOfBirth        pgtype.Date    `db:"date_of_birth" json:"date_of_birth"`
+	Gender             pgtype.Text    `db:"gender" json:"gender"`
+	ProfilePicture     pgtype.Text    `db:"profile_picture" json:"profile_picture"`
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, error) {
@@ -270,6 +362,35 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 	return i, err
 }
 
+const updateBook = `-- name: UpdateBook :exec
+UPDATE books
+SET
+    title = $2,
+    description = $3,
+    updated_at = $4,
+    cover = $5
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UpdateBookParams struct {
+	ID          int32            `db:"id" json:"id"`
+	Title       pgtype.Text      `db:"title" json:"title"`
+	Description pgtype.Text      `db:"description" json:"description"`
+	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
+	Cover       pgtype.Text      `db:"cover" json:"cover"`
+}
+
+func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) error {
+	_, err := q.db.Exec(ctx, updateBook,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.UpdatedAt,
+		arg.Cover,
+	)
+	return err
+}
+
 const updateUser = `-- name: UpdateUser :exec
 UPDATE users
 SET
@@ -280,26 +401,28 @@ SET
     verified=$6,
     verification_token=$7,
     password_reset_token=$8,
-    first_name=$8,
-    last_name=$9,
-    date_of_birth=$9,
-    gender=$10,
-    profile_picture=$11
+    first_name=$9,
+    last_name=$10,
+    date_of_birth=$11,
+    gender=$12,
+    profile_picture=$13
 WHERE id=$1
 `
 
 type UpdateUserParams struct {
-	ID                 int32          `json:"id"`
-	Username           string         `json:"username"`
-	PasswordHash       string         `json:"password_hash"`
-	Email              string         `json:"email"`
-	Status             NullUserStatus `json:"status"`
-	Verified           pgtype.Bool    `json:"verified"`
-	VerificationToken  pgtype.Text    `json:"verification_token"`
-	PasswordResetToken pgtype.Text    `json:"password_reset_token"`
-	LastName           pgtype.Text    `json:"last_name"`
-	Gender             pgtype.Text    `json:"gender"`
-	ProfilePicture     pgtype.Text    `json:"profile_picture"`
+	ID                 int32          `db:"id" json:"id"`
+	Username           string         `db:"username" json:"username"`
+	PasswordHash       string         `db:"password_hash" json:"password_hash"`
+	Email              string         `db:"email" json:"email"`
+	Status             NullUserStatus `db:"status" json:"status"`
+	Verified           pgtype.Bool    `db:"verified" json:"verified"`
+	VerificationToken  pgtype.Text    `db:"verification_token" json:"verification_token"`
+	PasswordResetToken pgtype.Text    `db:"password_reset_token" json:"password_reset_token"`
+	FirstName          pgtype.Text    `db:"first_name" json:"first_name"`
+	LastName           pgtype.Text    `db:"last_name" json:"last_name"`
+	DateOfBirth        pgtype.Date    `db:"date_of_birth" json:"date_of_birth"`
+	Gender             pgtype.Text    `db:"gender" json:"gender"`
+	ProfilePicture     pgtype.Text    `db:"profile_picture" json:"profile_picture"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
@@ -312,7 +435,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.Verified,
 		arg.VerificationToken,
 		arg.PasswordResetToken,
+		arg.FirstName,
 		arg.LastName,
+		arg.DateOfBirth,
 		arg.Gender,
 		arg.ProfilePicture,
 	)

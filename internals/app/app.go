@@ -125,6 +125,8 @@ func (app Application) RegisterRoute(r *router.Router) {
 	auth.POST("/sign-up", r.SignUp)
 
 	book.GET("", r.GetBooks, r.JWTMiddleware("access"))
+	book.POST("", r.CreateBook, r.JWTMiddleware("access"))
+	book.PATCH("/:bookId", r.UpdateBook, r.JWTMiddleware("access"))
 }
 
 func (app Application) Run() error {

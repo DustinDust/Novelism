@@ -1,0 +1,2 @@
+ALTER TABLE books
+ADD COLUMN cover VARCHAR(255);

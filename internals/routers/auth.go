@@ -17,8 +17,8 @@ func (r Router) SignIn(c echo.Context) error {
 	if err := c.Bind(&payload); err != nil {
 		return r.badRequestError(err)
 	}
-	if err := r.validator.ValidateStruct(&payload); err != nil {
-		return r.badRequestError(err)
+	if err := r.bindAndValidatePayload(c, &payload); err != nil {
+		return err
 	}
 	user, err := r.queries.GetUserByUsername(c.Request().Context(), payload.Username)
 	if err != nil {
@@ -53,8 +53,8 @@ func (r Router) SignUp(c echo.Context) error {
 	if err := c.Bind(&payload); err != nil {
 		return r.badRequestError(err)
 	}
-	if err := r.validator.ValidateStruct(payload); err != nil {
-		return r.badRequestError(err)
+	if err := r.bindAndValidatePayload(c, &payload); err != nil {
+		return err
 	}
 	crypt := services.NewCryptoService()
 	passwordHash, err := crypt.Hash(payload.Password)

@@ -94,7 +94,7 @@ func (v *Validator) ValidateStruct(args interface{}) error {
 }
 
 // Debug & help subscribe StructValidationError to the Error interface
-func (ve *StructValidationErrors) Error() string {
+func (ve StructValidationErrors) Error() string {
 	return ve.FieldErrors.Error()
 }
 

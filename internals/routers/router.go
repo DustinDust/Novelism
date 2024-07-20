@@ -121,3 +121,16 @@ func (r Router) forbiddenError(err error) error {
 func (r Router) unauthorizedError(err error) error {
 	return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 }
+
+func (r Router) bindAndValidatePayload(c echo.Context, payload any) error {
+	if err := c.Bind(payload); err != nil {
+		return r.badRequestError(err)
+	}
+	if err := r.validator.ValidateStruct(payload); err != nil {
+		if verr, ok := err.(utils.StructValidationErrors); ok {
+			return verr.TranslateToHttpError()
+		}
+		return r.badRequestError(err)
+	}
+	return nil
+}
