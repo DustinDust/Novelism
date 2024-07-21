@@ -51,9 +51,10 @@ INSERT INTO books (
     user_id,
     title,
     cover,
-    description
+    description,
+    visibility
 ) VALUES(
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 );
 
 -- name: InsertBook :one
@@ -61,19 +62,23 @@ INSERT INTO books (
     user_id,
     title,
     description,
-    cover
+    cover,
+    visibility
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 ) RETURNING *;
 
 -- name: GetBookById :one
 SELECT * FROM books WHERE id=$1 LIMIT 1;
 
--- name: FindBooksByUserId :many
-SELECT * FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3;
+-- name: BrowseBooks :many
+SELECT * FROM books WHERE visibility = 'visible' LIMIT $1 OFFSET $2;
 
--- name: CountBooksByUserId :one
-SELECT count(*) FROM BOOKS WHERE user_id = $1;
+-- name: CountBrowsableBooks :one
+SELECT count(*) FROM BOOKS WHERE visibility = 'visible';
+
+-- name: FindBooksByUserId :many
+SELECT * FROM books WHERE user_id = $1;
 
 -- name: UpdateBook :exec
 UPDATE books
@@ -81,7 +86,8 @@ SET
     title = $2,
     description = $3,
     updated_at = $4,
-    cover = $5
+    cover = $5,
+    visibility = $6
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: DeleteBook :exec

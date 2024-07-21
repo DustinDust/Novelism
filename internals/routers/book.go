@@ -13,21 +13,16 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (r Router) GetBooks(c echo.Context) error {
+func (r Router) BrowseBooks(c echo.Context) error {
 	filter := Filter{}
 	if err := c.Bind(&filter); err != nil {
 		return r.badRequestError(err)
 	}
-	user, ok := c.Get("user").(data.User)
-	if !ok {
-		return r.forbiddenError(utils.ErrorForbiddenResource())
-	}
-	totalBooks, err := r.queries.CountBooksByUserId(c.Request().Context(), pgtype.Int4{Int32: user.ID, Valid: true})
+	totalBooks, err := r.queries.CountBrowsableBooks(c.Request().Context())
 	if err != nil {
 		return r.serverError(err)
 	}
-	books, err := r.queries.FindBooksByUserId(c.Request().Context(), data.FindBooksByUserIdParams{
-		UserID: pgtype.Int4{Int32: user.ID, Valid: true},
+	books, err := r.queries.BrowseBooks(c.Request().Context(), data.BrowseBooksParams{
 		Limit:  int32(filter.Limit()),
 		Offset: int32(filter.Offset()),
 	})

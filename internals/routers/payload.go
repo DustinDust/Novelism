@@ -14,6 +14,16 @@ type SignUpPayload struct {
 	Password string `json:"password" validate:"required,strongPassword"`
 }
 
+type InsertBookPayload struct {
+	Title       string `json:"title" validate:"required"`
+	Description string `json:"description" validate:"required"`
+}
+
+type UpdateBookPayload struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
 // --- RESPONSE DATA
 type SignInData struct {
 	AccessToken string    `json:"accessToken,omitempty"`
@@ -25,12 +35,7 @@ type SignUpData struct {
 	User        data.User `json:"user"`
 }
 
-type InsertBookPayload struct {
-	Title       string `json:"title" validate:"required"`
-	Description string `json:"description" validate:"required"`
-}
-
-type UpdateBookPayload struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+type GetChaptersData struct {
+	Book     data.Book      `json:"book"`
+	Chapters []data.Chapter `json:"chapters"`
 }

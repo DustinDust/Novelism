@@ -54,6 +54,48 @@ func (ns NullUserStatus) Value() (driver.Value, error) {
 	return string(ns.UserStatus), nil
 }
 
+type Visibility string
+
+const (
+	VisibilityHidden  Visibility = "hidden"
+	VisibilityVisible Visibility = "visible"
+)
+
+func (e *Visibility) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = Visibility(s)
+	case string:
+		*e = Visibility(s)
+	default:
+		return fmt.Errorf("unsupported scan type for Visibility: %T", src)
+	}
+	return nil
+}
+
+type NullVisibility struct {
+	Visibility Visibility `json:"visibility"`
+	Valid      bool       `json:"valid"` // Valid is true if Visibility is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullVisibility) Scan(value interface{}) error {
+	if value == nil {
+		ns.Visibility, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.Visibility.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullVisibility) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.Visibility), nil
+}
+
 type Book struct {
 	ID          int32            `db:"id" json:"id"`
 	UserID      pgtype.Int4      `db:"user_id" json:"user_id"`
@@ -63,6 +105,7 @@ type Book struct {
 	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
 	DeletedAt   pgtype.Timestamp `db:"deleted_at" json:"deleted_at"`
 	Cover       pgtype.Text      `db:"cover" json:"cover"`
+	Visibility  NullVisibility   `db:"visibility" json:"visibility"`
 }
 
 type Chapter struct {

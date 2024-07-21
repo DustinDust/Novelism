@@ -11,19 +11,59 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type BulkInsertBooksParams struct {
-	UserID      pgtype.Int4 `db:"user_id" json:"user_id"`
-	Title       pgtype.Text `db:"title" json:"title"`
-	Cover       pgtype.Text `db:"cover" json:"cover"`
-	Description pgtype.Text `db:"description" json:"description"`
-}
-
-const countBooksByUserId = `-- name: CountBooksByUserId :one
-SELECT count(*) FROM BOOKS WHERE user_id = $1
+const browseBooks = `-- name: BrowseBooks :many
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover, visibility FROM books WHERE visibility = 'visible' LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) CountBooksByUserId(ctx context.Context, userID pgtype.Int4) (int64, error) {
-	row := q.db.QueryRow(ctx, countBooksByUserId, userID)
+type BrowseBooksParams struct {
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) BrowseBooks(ctx context.Context, arg BrowseBooksParams) ([]Book, error) {
+	rows, err := q.db.Query(ctx, browseBooks, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Book
+	for rows.Next() {
+		var i Book
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.Cover,
+			&i.Visibility,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+type BulkInsertBooksParams struct {
+	UserID      pgtype.Int4    `db:"user_id" json:"user_id"`
+	Title       pgtype.Text    `db:"title" json:"title"`
+	Cover       pgtype.Text    `db:"cover" json:"cover"`
+	Description pgtype.Text    `db:"description" json:"description"`
+	Visibility  NullVisibility `db:"visibility" json:"visibility"`
+}
+
+const countBrowsableBooks = `-- name: CountBrowsableBooks :one
+SELECT count(*) FROM BOOKS WHERE visibility = 'visible'
+`
+
+func (q *Queries) CountBrowsableBooks(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countBrowsableBooks)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -42,17 +82,11 @@ func (q *Queries) DeleteBook(ctx context.Context, id int32) error {
 }
 
 const findBooksByUserId = `-- name: FindBooksByUserId :many
-SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover FROM books WHERE user_id = $1 LIMIT $2 OFFSET $3
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover, visibility FROM books WHERE user_id = $1
 `
 
-type FindBooksByUserIdParams struct {
-	UserID pgtype.Int4 `db:"user_id" json:"user_id"`
-	Limit  int32       `db:"limit" json:"limit"`
-	Offset int32       `db:"offset" json:"offset"`
-}
-
-func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdParams) ([]Book, error) {
-	rows, err := q.db.Query(ctx, findBooksByUserId, arg.UserID, arg.Limit, arg.Offset)
+func (q *Queries) FindBooksByUserId(ctx context.Context, userID pgtype.Int4) ([]Book, error) {
+	rows, err := q.db.Query(ctx, findBooksByUserId, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +103,7 @@ func (q *Queries) FindBooksByUserId(ctx context.Context, arg FindBooksByUserIdPa
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.Cover,
+			&i.Visibility,
 		); err != nil {
 			return nil, err
 		}
@@ -114,7 +149,7 @@ func (q *Queries) FindChaptersByBookId(ctx context.Context, bookID pgtype.Int4) 
 }
 
 const getBookById = `-- name: GetBookById :one
-SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover FROM books WHERE id=$1 LIMIT 1
+SELECT id, user_id, title, description, created_at, updated_at, deleted_at, cover, visibility FROM books WHERE id=$1 LIMIT 1
 `
 
 func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
@@ -129,6 +164,7 @@ func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Cover,
+		&i.Visibility,
 	)
 	return i, err
 }
@@ -222,17 +258,19 @@ INSERT INTO books (
     user_id,
     title,
     description,
-    cover
+    cover,
+    visibility
 ) VALUES (
-    $1, $2, $3, $4
-) RETURNING id, user_id, title, description, created_at, updated_at, deleted_at, cover
+    $1, $2, $3, $4, $5
+) RETURNING id, user_id, title, description, created_at, updated_at, deleted_at, cover, visibility
 `
 
 type InsertBookParams struct {
-	UserID      pgtype.Int4 `db:"user_id" json:"user_id"`
-	Title       pgtype.Text `db:"title" json:"title"`
-	Description pgtype.Text `db:"description" json:"description"`
-	Cover       pgtype.Text `db:"cover" json:"cover"`
+	UserID      pgtype.Int4    `db:"user_id" json:"user_id"`
+	Title       pgtype.Text    `db:"title" json:"title"`
+	Description pgtype.Text    `db:"description" json:"description"`
+	Cover       pgtype.Text    `db:"cover" json:"cover"`
+	Visibility  NullVisibility `db:"visibility" json:"visibility"`
 }
 
 func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (Book, error) {
@@ -241,6 +279,7 @@ func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (Book, e
 		arg.Title,
 		arg.Description,
 		arg.Cover,
+		arg.Visibility,
 	)
 	var i Book
 	err := row.Scan(
@@ -252,6 +291,7 @@ func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (Book, e
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Cover,
+		&i.Visibility,
 	)
 	return i, err
 }
@@ -368,7 +408,8 @@ SET
     title = $2,
     description = $3,
     updated_at = $4,
-    cover = $5
+    cover = $5,
+    visibility = $6
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -378,6 +419,7 @@ type UpdateBookParams struct {
 	Description pgtype.Text      `db:"description" json:"description"`
 	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
 	Cover       pgtype.Text      `db:"cover" json:"cover"`
+	Visibility  NullVisibility   `db:"visibility" json:"visibility"`
 }
 
 func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) error {
@@ -387,6 +429,7 @@ func (q *Queries) UpdateBook(ctx context.Context, arg UpdateBookParams) error {
 		arg.Description,
 		arg.UpdatedAt,
 		arg.Cover,
+		arg.Visibility,
 	)
 	return err
 }

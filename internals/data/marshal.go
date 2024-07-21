@@ -49,3 +49,10 @@ func (status NullUserStatus) MarshalJSON() ([]byte, error) {
 	}
 	return []byte(status.UserStatus), nil
 }
+
+func (v NullVisibility) MarshalJSON() ([]byte, error) {
+	if !v.Valid {
+		return nil, nil
+	}
+	return []byte(v.Visibility), nil
+}
