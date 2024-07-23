@@ -128,6 +128,9 @@ func (app Application) RegisterRoute(r *router.Router) {
 	book.POST("", r.CreateBook, r.JWTMiddleware("access"))
 	book.PATCH("/:bookId", r.UpdateBook, r.JWTMiddleware("access"))
 	book.DELETE("/:bookId", r.DeleteBook, r.JWTMiddleware("access"))
+
+	api.GET("/book/:bookId/chapter", r.GetChaptersByBook)
+	api.POST("/book/:bookId/chapter", r.CreateChapter, r.JWTMiddleware("access"))
 }
 
 func (app Application) Run() error {

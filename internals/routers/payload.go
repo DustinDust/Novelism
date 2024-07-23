@@ -24,6 +24,11 @@ type UpdateBookPayload struct {
 	Description string `json:"description"`
 }
 
+type CreateChapterPayload struct {
+	Title       string `json:"title" validate:"required"`
+	Description string `json:"description" validate:"required"`
+}
+
 // --- RESPONSE DATA
 type SignInData struct {
 	AccessToken string    `json:"accessToken,omitempty"`
@@ -38,4 +43,9 @@ type SignUpData struct {
 type GetChaptersData struct {
 	Book     data.Book      `json:"book"`
 	Chapters []data.Chapter `json:"chapters"`
+}
+
+type CreateChapterData struct {
+	Chapter data.Chapter   `json:"chapter"`
+	Content []data.Content `json:"content"`
 }

@@ -105,3 +105,13 @@ INSERT INTO chapters (
 ) VALUES (
     $1, $2, $3, $4
 ) RETURNING *;
+
+-- name: GetContentsFromChapterId :many
+SELECT * FROM contents WHERE chapter_id = $1;
+
+-- name: InsertContentToChapter :one
+INSERT INTO contents (
+    chapter_id, text_content, status
+) VALUES (
+    $1, $2, $3
+) RETURNING *;

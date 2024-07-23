@@ -11,6 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ContentStatus string
+
+const (
+	ContentStatusDraft     ContentStatus = "draft"
+	ContentStatusPublished ContentStatus = "published"
+)
+
+func (e *ContentStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContentStatus(s)
+	case string:
+		*e = ContentStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContentStatus: %T", src)
+	}
+	return nil
+}
+
+type NullContentStatus struct {
+	ContentStatus ContentStatus `json:"content_status"`
+	Valid         bool          `json:"valid"` // Valid is true if ContentStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContentStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContentStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContentStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContentStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContentStatus), nil
+}
+
 type UserStatus string
 
 const (
@@ -120,20 +162,13 @@ type Chapter struct {
 }
 
 type Content struct {
-	ID          int32            `db:"id" json:"id"`
-	ChapterID   pgtype.Int4      `db:"chapter_id" json:"chapter_id"`
-	TextContent pgtype.Text      `db:"text_content" json:"text_content"`
-	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamp `db:"updated_at" json:"updated_at"`
-	DeletedAt   pgtype.Timestamp `db:"deleted_at" json:"deleted_at"`
-}
-
-type ContentVersion struct {
-	ID          int32            `db:"id" json:"id"`
-	ContentID   int32            `db:"content_id" json:"content_id"`
-	TextContent string           `db:"text_content" json:"text_content"`
-	CreatedAt   pgtype.Timestamp `db:"created_at" json:"created_at"`
-	UserID      int32            `db:"user_id" json:"user_id"`
+	ID          int32             `db:"id" json:"id"`
+	ChapterID   pgtype.Int4       `db:"chapter_id" json:"chapter_id"`
+	TextContent pgtype.Text       `db:"text_content" json:"text_content"`
+	CreatedAt   pgtype.Timestamp  `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamp  `db:"updated_at" json:"updated_at"`
+	DeletedAt   pgtype.Timestamp  `db:"deleted_at" json:"deleted_at"`
+	Status      NullContentStatus `db:"status" json:"status"`
 }
 
 type User struct {

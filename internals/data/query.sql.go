@@ -26,7 +26,7 @@ func (q *Queries) BrowseBooks(ctx context.Context, arg BrowseBooksParams) ([]Boo
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Book
+	items := []Book{}
 	for rows.Next() {
 		var i Book
 		if err := rows.Scan(
@@ -91,7 +91,7 @@ func (q *Queries) FindBooksByUserId(ctx context.Context, userID pgtype.Int4) ([]
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Book
+	items := []Book{}
 	for rows.Next() {
 		var i Book
 		if err := rows.Scan(
@@ -125,7 +125,7 @@ func (q *Queries) FindChaptersByBookId(ctx context.Context, bookID pgtype.Int4) 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Chapter
+	items := []Chapter{}
 	for rows.Next() {
 		var i Chapter
 		if err := rows.Scan(
@@ -167,6 +167,38 @@ func (q *Queries) GetBookById(ctx context.Context, id int32) (Book, error) {
 		&i.Visibility,
 	)
 	return i, err
+}
+
+const getContentsFromChapterId = `-- name: GetContentsFromChapterId :many
+SELECT id, chapter_id, text_content, created_at, updated_at, deleted_at, status FROM contents WHERE chapter_id = $1
+`
+
+func (q *Queries) GetContentsFromChapterId(ctx context.Context, chapterID pgtype.Int4) ([]Content, error) {
+	rows, err := q.db.Query(ctx, getContentsFromChapterId, chapterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Content{}
+	for rows.Next() {
+		var i Content
+		if err := rows.Scan(
+			&i.ID,
+			&i.ChapterID,
+			&i.TextContent,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -328,6 +360,35 @@ func (q *Queries) InsertChapter(ctx context.Context, arg InsertChapterParams) (C
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const insertContentToChapter = `-- name: InsertContentToChapter :one
+INSERT INTO contents (
+    chapter_id, text_content, status
+) VALUES (
+    $1, $2, $3
+) RETURNING id, chapter_id, text_content, created_at, updated_at, deleted_at, status
+`
+
+type InsertContentToChapterParams struct {
+	ChapterID   pgtype.Int4       `db:"chapter_id" json:"chapter_id"`
+	TextContent pgtype.Text       `db:"text_content" json:"text_content"`
+	Status      NullContentStatus `db:"status" json:"status"`
+}
+
+func (q *Queries) InsertContentToChapter(ctx context.Context, arg InsertContentToChapterParams) (Content, error) {
+	row := q.db.QueryRow(ctx, insertContentToChapter, arg.ChapterID, arg.TextContent, arg.Status)
+	var i Content
+	err := row.Scan(
+		&i.ID,
+		&i.ChapterID,
+		&i.TextContent,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.Status,
 	)
 	return i, err
 }

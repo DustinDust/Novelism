@@ -28,8 +28,3 @@ CREATE TRIGGER trigger_update_contents_updated_at
 BEFORE UPDATE ON contents
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER trigger_update_content_versions_updated_at
-BEFORE UPDATE ON content_versions
-FOR EACH ROW
-EXECUTE PROCEDURE update_updated_at_column();
