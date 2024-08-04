@@ -18,7 +18,6 @@ type Router struct {
 	queries *data.Queries
 
 	mailer    *services.MailerService
-	jwt       *services.JWTService
 	validator *utils.Validator
 }
 
@@ -37,7 +36,6 @@ func New(dbtx *pgx.Conn) (*Router, error) {
 		db:        dbtx,
 		queries:   data.New(dbtx),
 		mailer:    mailer,
-		jwt:       &services.JWTService{}, // recreate each router creation since it does not initiate any object instance
 		validator: utils.NewValidator(),
 	}, nil
 }

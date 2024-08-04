@@ -1,4 +1,4 @@
-package services
+package crypto
 
 import (
 	"gin_stuff/internals/utils"
@@ -7,8 +7,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/viper"
 )
-
-type JWTService struct{}
 
 type JwtClaims struct {
 	Claims interface{} `json:"claims"`
@@ -26,7 +24,7 @@ type SignedJwtResult struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-func (j JWTService) signToken(claims interface{}, option *JwtSignOption) (SignedJwtResult, error) {
+func signToken(claims interface{}, option *JwtSignOption) (SignedJwtResult, error) {
 	expiresAt := time.Now().Add(option.ExpirationDuration)
 	token := jwt.NewWithClaims(option.SigningMethod, JwtClaims{
 		Claims: claims,
@@ -41,18 +39,18 @@ func (j JWTService) signToken(claims interface{}, option *JwtSignOption) (Signed
 	}, err
 }
 
-func (j JWTService) SignAccessToken(claims interface{}) (SignedJwtResult, error) {
+func SignAccessToken(claims interface{}) (SignedJwtResult, error) {
 	secret := viper.GetViper().GetString("jwt.access_secret")
 	expirationDuration := viper.GetViper().GetDuration("jwt.access_expiration_duration")
 
-	return j.signToken(claims, &JwtSignOption{
+	return signToken(claims, &JwtSignOption{
 		Secret:             secret,
 		ExpirationDuration: expirationDuration,
 		SigningMethod:      jwt.SigningMethodHS256,
 	})
 }
 
-func (j JWTService) verifyToken(tokenString string, secret string) (jwt.MapClaims, error) {
+func verifyToken(tokenString string, secret string) (jwt.MapClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, jwt.MapClaims{}, func(t *jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
@@ -65,7 +63,7 @@ func (j JWTService) verifyToken(tokenString string, secret string) (jwt.MapClaim
 	return token.Claims.(jwt.MapClaims), nil
 }
 
-func (j JWTService) VerifyAccessToken(tokenString string) (jwt.MapClaims, error) {
+func VerifyAccessToken(tokenString string) (jwt.MapClaims, error) {
 	secret := viper.GetViper().GetString("jwt.accessSecret")
-	return j.verifyToken(tokenString, secret)
+	return verifyToken(tokenString, secret)
 }

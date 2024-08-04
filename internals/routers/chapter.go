@@ -108,3 +108,7 @@ func (r Router) CreateChapter(c echo.Context) error {
 		Data: CreateChapterData{Chapter: chapter, Content: []data.Content{content}},
 	})
 }
+
+func (r Router) ChapterDetail(c echo.Context) error {
+	return echo.ErrNotImplemented
+}

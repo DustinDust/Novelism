@@ -3,8 +3,8 @@ package router
 import (
 	"context"
 	"errors"
+	"gin_stuff/internals/crypto"
 	"gin_stuff/internals/data"
-	"gin_stuff/internals/services"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -26,11 +26,10 @@ func (r Router) SignIn(c echo.Context) error {
 			return r.serverError(err)
 		}
 	}
-	crypt := services.NewCryptoService()
-	if err := crypt.Match(payload.Password, user.PasswordHash); err != nil {
+	if err := crypto.Match(payload.Password, user.PasswordHash); err != nil {
 		return r.unauthorizedError(err)
 	}
-	token, err := r.jwt.SignAccessToken(user.ID)
+	token, err := crypto.SignAccessToken(user.ID)
 	if err != nil {
 		return r.serverError(err)
 	}
@@ -50,8 +49,7 @@ func (r Router) SignUp(c echo.Context) error {
 	if err := r.bindAndValidatePayload(c, &payload); err != nil {
 		return err
 	}
-	crypt := services.NewCryptoService()
-	passwordHash, err := crypt.Hash(payload.Password)
+	passwordHash, err := crypto.Hash(payload.Password)
 	if err != nil {
 		return r.serverError(err)
 	}
@@ -73,7 +71,7 @@ func (r Router) SignUp(c echo.Context) error {
 	if err := tx.Commit(c.Request().Context()); err != nil {
 		return r.serverError(err)
 	}
-	token, err := r.jwt.SignAccessToken(user.ID)
+	token, err := crypto.SignAccessToken(user.ID)
 	if err != nil {
 		return r.serverError(err)
 	}
