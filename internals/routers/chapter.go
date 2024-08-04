@@ -1,223 +1,114 @@
 package router
 
 import (
+	"context"
 	"errors"
-	"gin_stuff/internals/repositories"
+	"gin_stuff/internals/data"
 	"gin_stuff/internals/utils"
 	"net/http"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 )
 
-type CreateChapterPayload struct {
-	BookID      int    `validate:"required,gte=1"`
-	Title       string `json:"title" validate:"required,max=128"`
-	Description string `json:"description"`
-}
-
-type UpdateChapterPayload struct {
-	Title       string `json:"title" validate:"max=128"`
-	Description string `json:"description"`
+func (r Router) GetChaptersByBook(c echo.Context) error {
+	bookID, err := strconv.Atoi(c.Param("bookId"))
+	if err != nil {
+		return r.badRequestError(err)
+	}
+	book, err := r.queries.GetBookById(c.Request().Context(), int32(bookID))
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return r.notFoundError(err)
+		default:
+			return r.serverError(err)
+		}
+	}
+	chapters, err := r.queries.FindChaptersByBookId(c.Request().Context(), pgtype.Int4{Int32: int32(bookID), Valid: true})
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return c.JSON(http.StatusOK, Response[GetChaptersData]{
+				OK: true,
+				Data: GetChaptersData{
+					Book:     book,
+					Chapters: []data.Chapter{},
+				},
+			})
+		default:
+			return r.serverError(err)
+		}
+	}
+	return c.JSON(http.StatusOK, Response[GetChaptersData]{
+		OK: true,
+		Data: GetChaptersData{
+			Book:     book,
+			Chapters: chapters,
+		},
+	})
 }
 
 func (r Router) CreateChapter(c echo.Context) error {
-	validate := utils.NewValidator()
-	createChapterPayload := new(CreateChapterPayload)
-	idStr := c.Param("bookId")
-	id, err := strconv.Atoi(idStr)
+	bookID, err := strconv.Atoi(c.Param("bookId"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
+	user, ok := c.Get("user").(data.User)
+	if !ok {
+		return r.unauthorizedError(utils.ErrUnauthorized())
 	}
-	book, err := r.Repository.Book.Get(int64(id))
+	book, err := r.queries.GetBookById(c.Request().Context(), int32(bookID))
 	if err != nil {
 		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
+		case errors.Is(err, pgx.ErrNoRows):
 			return r.notFoundError(err)
 		default:
 			return r.serverError(err)
 		}
 	}
-	if book.UserID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
+	if book.UserID.Int32 != user.ID {
+		return r.unauthorizedError(utils.ErrorForbiddenResource("book", "chapters"))
 	}
-	createChapterPayload.BookID = id
-	if err := c.Bind(createChapterPayload); err != nil {
+	payload := CreateChapterPayload{}
+	if err := r.bindAndValidatePayload(c, &payload); err != nil {
 		return r.badRequestError(err)
 	}
-	if err := validate.ValidateStruct(createChapterPayload); err != nil {
-		if verr, ok := err.(*utils.StructValidationErrors); ok {
-			return verr.TranslateError()
-		} else {
-			return r.serverError(err)
-		}
-	}
-	chapter := repositories.Chapter{
-		AuthorID:    book.UserID,
-		BookID:      book.ID,
-		Title:       createChapterPayload.Title,
-		Description: createChapterPayload.Description,
-	}
-	err = r.Repository.Chapter.Insert(&chapter)
+	tx, err := r.db.BeginTx(c.Request().Context(), pgx.TxOptions{})
 	if err != nil {
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusCreated, Response[repositories.Chapter]{
-		OK:   true,
-		Data: chapter,
+	defer tx.Rollback(context.Background())
+
+	chapter, err := r.queries.WithTx(tx).InsertChapter(c.Request().Context(), data.InsertChapterParams{
+		BookID:      pgtype.Int4{Int32: book.ID, Valid: true},
+		AuthorID:    pgtype.Int4{Int32: user.ID, Valid: true},
+		Title:       pgtype.Text{String: payload.Title, Valid: true},
+		Description: pgtype.Text{String: payload.Description, Valid: true},
 	})
-}
-
-// get all chapters from 1 book (with optional filter)
-func (r Router) FindChapters(c echo.Context) error {
-	bookIdStr := c.Param("bookId")
-	bookId, err := strconv.Atoi(bookIdStr)
 	if err != nil {
-		return r.badRequestError(err)
-	}
-	_, err = r.Repository.Book.Get(int64(bookId))
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return r.notFoundError(err)
-		default:
-			return r.serverError(err)
-		}
-	}
-	var title string
-	filter := repositories.Filter{
-		Page:     1,
-		PageSize: 10,
-		SortSafeList: []string{
-			"id",
-			"title",
-			"-id",
-			"-title",
-			"chapter_no",
-			"-chapter_no",
-			"created_at",
-			"-created_at",
-			"updated_at",
-			"-updated_at",
-		},
-		Sort: "chapter_no",
-	}
-	queryParams := c.QueryParams()
-	if queryParams.Has("title") {
-		title = queryParams.Get("title")
-	}
-	if queryParams.Has("pageSize") {
-		pageSize, err := strconv.Atoi(queryParams.Get("pageSize"))
-		if err != nil {
-			return r.badRequestError(err)
-		}
-		filter.PageSize = pageSize
-	}
-	if queryParams.Has("sort") {
-		filter.Sort = queryParams.Get("sort")
-	}
-	if queryParams.Has("page") {
-		page, err := strconv.Atoi(queryParams.Get("page"))
-		if err != nil {
-			return r.badRequestError(err)
-		}
-		filter.Page = page
-	}
-
-	chapters, metadata, err := r.Repository.Chapter.Find(int64(bookId), title, filter)
-	if err != nil {
+		tx.Rollback(c.Request().Context())
 		return r.serverError(err)
 	}
-	return c.JSON(http.StatusOK, Response[[]*repositories.Chapter]{
-		OK:       true,
-		Metadata: metadata,
-		Data:     chapters,
+	content, err := r.queries.InsertContentToChapter(c.Request().Context(), data.InsertContentToChapterParams{
+		ChapterID:   pgtype.Int4{Int32: chapter.ID, Valid: true},
+		TextContent: pgtype.Text{String: "", Valid: true},
+		Status:      data.NullContentStatus{ContentStatus: data.ContentStatusDraft, Valid: true},
 	})
-}
+	if err != nil {
+		tx.Rollback(c.Request().Context())
+		return r.serverError(err)
+	}
+	tx.Commit(c.Request().Context())
 
-func (r Router) UpdateChapter(c echo.Context) error {
-	chapterNo, err := strconv.Atoi(c.Param("chapterNo"))
-	if err != nil {
-		return r.badRequestError(err)
-	}
-	bookId, err := strconv.Atoi(c.Param("bookId"))
-	if err != nil {
-		return r.badRequestError(err)
-	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.unauthorizedError(err)
-	}
-	validate := utils.NewValidator()
-	updateChapterPayload := new(UpdateChapterPayload)
-	if err := c.Bind(updateChapterPayload); err != nil {
-		return r.badRequestError(err)
-	}
-	if err := validate.ValidateStruct(updateChapterPayload); err != nil {
-		if verr, ok := err.(*utils.StructValidationErrors); ok {
-			return verr.TranslateError()
-		} else {
-			return r.serverError(err)
-		}
-	}
-	chapter, err := r.Repository.Chapter.Get(int64(chapterNo), int64(bookId))
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return r.notFoundError(err)
-		default:
-			return r.serverError(err)
-		}
-	}
-	if chapter.AuthorID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
-	}
-	if updateChapterPayload.Title != "" {
-		chapter.Title = updateChapterPayload.Title
-	}
-	if updateChapterPayload.Description != "" {
-		chapter.Description = updateChapterPayload.Description
-	}
-	err = r.Repository.Chapter.Update(chapter)
-	if err != nil {
-		r.serverError(err)
-	}
-	return c.JSON(http.StatusOK, Response[repositories.Chapter]{
+	return c.JSON(http.StatusOK, Response[CreateChapterData]{
 		OK:   true,
-		Data: *chapter,
+		Data: CreateChapterData{Chapter: chapter, Content: []data.Content{content}},
 	})
 }
 
-func (r Router) DeleteChapter(c echo.Context) error {
-	chapterNo, err := strconv.Atoi(c.Param("chapterNo"))
-	if err != nil {
-		return r.badRequestError(err)
-	}
-	bookId, err := strconv.Atoi(c.Param("bookId"))
-	if err != nil {
-		return r.badRequestError(err)
-	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
-	}
-	chapter, err := r.Repository.Chapter.Get(int64(chapterNo), int64(bookId))
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return r.notFoundError(err)
-		default:
-			return r.serverError(err)
-		}
-	}
-	if chapter.AuthorID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
-	}
-	return c.JSON(http.StatusOK, Response[any]{
-		OK: true,
-	})
+func (r Router) ChapterDetail(c echo.Context) error {
+	return echo.ErrNotImplemented
 }

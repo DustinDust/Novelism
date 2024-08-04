@@ -1,232 +1,153 @@
 package router
 
 import (
+	"context"
 	"errors"
-	"gin_stuff/internals/repositories"
+	"gin_stuff/internals/data"
 	"gin_stuff/internals/utils"
 	"net/http"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v4"
 )
 
-type CreateBookPayload struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
-type UpdateBookPayload struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-}
-
-func (r Router) CreateBook(c echo.Context) error {
-	validate := utils.NewValidator()
-	createBookPayload := new(CreateBookPayload)
-	if err := c.Bind(createBookPayload); err != nil {
+func (r Router) BrowseBooks(c echo.Context) error {
+	filter := Filter{}
+	if err := c.Bind(&filter); err != nil {
 		return r.badRequestError(err)
 	}
-	if err := validate.ValidateStruct(createBookPayload); err != nil {
-		if verr, ok := err.(*utils.StructValidationErrors); ok {
-			return verr.TranslateError()
-		} else {
-			return r.serverError(err)
-		}
-	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
-	}
-	user, err := r.Repository.User.Get(int64(userId))
+	totalBooks, err := r.queries.CountBrowsableBooks(c.Request().Context())
 	if err != nil {
 		return r.serverError(err)
 	}
-	book := repositories.Book{
-		UserID:      user.ID,
-		User:        user,
-		Title:       createBookPayload.Title,
-		Description: createBookPayload.Description,
+	books, err := r.queries.BrowseBooks(c.Request().Context(), data.BrowseBooksParams{
+		Limit:  int32(filter.Limit()),
+		Offset: int32(filter.Offset()),
+	})
+	if err != nil {
+		return r.serverError(err)
 	}
-	if err := r.Repository.Book.Insert(&book); err != nil {
-		return r.badRequestError(err)
+	return c.JSON(http.StatusOK, Response[[]data.Book]{
+		OK:       true,
+		Data:     books,
+		Metadata: CalculateMetadata(int(totalBooks), filter.PageSize, filter.Page),
+	})
+}
+
+func (r Router) CreateBook(c echo.Context) error {
+	payload := InsertBookPayload{}
+	if err := r.bindAndValidatePayload(c, &payload); err != nil {
+		return err
 	}
-	return c.JSON(http.StatusCreated, Response[repositories.Book]{
+	user, ok := c.Get("user").(data.User)
+	if !ok {
+		return r.forbiddenError(utils.ErrorForbiddenResource())
+	}
+
+	tx, err := r.db.BeginTx(c.Request().Context(), pgx.TxOptions{})
+	if err != nil {
+		return r.serverError(err)
+	}
+	defer tx.Rollback(context.Background())
+
+	book, err := r.queries.WithTx(tx).InsertBook(c.Request().Context(), data.InsertBookParams{
+		UserID:      pgtype.Int4{Int32: user.ID, Valid: true},
+		Title:       pgtype.Text{String: payload.Title, Valid: true},
+		Description: pgtype.Text{String: payload.Description, Valid: payload.Description != ""},
+	})
+	if err != nil {
+		return r.serverError(err)
+	}
+
+	if err := tx.Commit(c.Request().Context()); err != nil {
+		return r.serverError(err)
+	}
+
+	return c.JSON(http.StatusCreated, Response[data.Book]{
 		OK:   true,
 		Data: book,
 	})
 }
 
-func (r Router) GetBook(c echo.Context) error {
-	idStr := c.Param("id")
-	if idStr == "" {
-		return r.badRequestError(utils.ErrorInvalidRouteParam)
-	}
-	id, err := strconv.Atoi(idStr)
+func (r Router) UpdateBook(c echo.Context) error {
+	bookId, err := strconv.Atoi(c.Param("bookId"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
+	payload := UpdateBookPayload{}
+	if err := r.bindAndValidatePayload(c, &payload); err != nil {
+		return err
 	}
-	book, err := r.Repository.Book.Get(int64(id))
+	user, ok := c.Get("user").(data.User)
+	if !ok {
+		return r.forbiddenError(utils.ErrorForbiddenResource())
+	}
+	book, err := r.queries.GetBookById(c.Request().Context(), int32(bookId))
 	if err != nil {
 		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
+		case errors.Is(err, pgx.ErrNoRows):
 			return r.notFoundError(err)
 		default:
 			return r.serverError(err)
 		}
 	}
-	if book.UserID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
+	if !book.UserID.Valid || book.UserID.Int32 != user.ID {
+		return r.forbiddenError(utils.ErrorForbiddenResource())
 	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"ok":   true,
-		"data": book,
+
+	tx, err := r.db.BeginTx(c.Request().Context(), pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+
+	book.PatchAttrs(map[string]any{
+		"description": payload.Description,
+		"title":       payload.Title,
 	})
-}
-
-func (r Router) UpdateBook(c echo.Context) error {
-	idStr := c.Param("id")
-	if idStr == "" {
-		return r.badRequestError(utils.ErrorInvalidRouteParam)
-	}
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return r.badRequestError(err)
+	if err := r.queries.WithTx(tx).SaveBook(c.Request().Context(), &book); err != nil {
+		return r.serverError(err)
 	}
 
-	validate := utils.NewValidator()
-	updateBookPayload := new(UpdateBookPayload)
-	if err := c.Bind(updateBookPayload); err != nil {
-		return r.badRequestError(err)
+	if err := tx.Commit(c.Request().Context()); err != nil {
+		return r.serverError(err)
 	}
-	if err := validate.ValidateStruct(updateBookPayload); err != nil {
-		if verr, ok := err.(*utils.StructValidationErrors); ok {
-			return verr.TranslateError()
-		} else {
-			return r.serverError(err)
-		}
-	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
-	}
-	book, err := r.Repository.Book.Get(int64(id))
-	if err != nil {
-		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
-		default:
-			return r.serverError(err)
-		}
-	}
-	if book.UserID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
-	}
-	if updateBookPayload.Title != "" {
-		book.Title = updateBookPayload.Title
-	}
-	if updateBookPayload.Description != "" {
-		book.Description = updateBookPayload.Description
-	}
-	err = r.Repository.Book.Update(book)
-	if err != nil {
-		r.serverError(err)
-	}
-	return c.JSON(http.StatusOK, Response[repositories.Book]{
+
+	return c.JSON(http.StatusOK, Response[data.Book]{
 		OK:   true,
-		Data: *book,
+		Data: book,
 	})
 }
 
 func (r Router) DeleteBook(c echo.Context) error {
-	idStr := c.Param("id")
-	if idStr == "" {
-		return r.badRequestError(utils.ErrorInvalidRouteParam)
-	}
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(c.Param("bookId"))
 	if err != nil {
 		return r.badRequestError(err)
 	}
-	userId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.forbiddenError(err)
+	user, ok := c.Get("user").(data.User)
+	if !ok {
+		return r.forbiddenError(utils.ErrorForbiddenResource())
 	}
-	book, err := r.Repository.Book.Get(int64(id))
+	book, err := r.queries.GetBookById(c.Request().Context(), int32(id))
 	if err != nil {
 		switch {
-		case errors.Is(err, utils.ErrorRecordsNotFound):
+		case errors.Is(err, pgx.ErrNoRows):
 			return r.notFoundError(err)
 		default:
 			return r.serverError(err)
 		}
 	}
-	if book.UserID != int64(userId) {
-		return r.forbiddenError(utils.ErrorForbiddenResource)
+	if book.UserID.Int32 != user.ID {
+		return r.forbiddenError(utils.ErrorForbiddenResource())
 	}
-	err = r.Repository.Book.Delete(int64(id))
+	err = r.queries.DeleteBook(c.Request().Context(), book.ID)
 	if err != nil {
 		return r.serverError(err)
 	}
 	return c.JSON(http.StatusOK, Response[any]{
-		OK: true,
+		OK:   true,
+		Data: book.ID,
 	})
-}
-
-func (r Router) FindBooks(c echo.Context) error {
-	currentUserId, err := r.JwtService.RetrieveUserIdFromContext(c)
-	if err != nil {
-		return r.unauthorizedError(err)
-	}
-	filter := repositories.Filter{
-		Page:         1,
-		PageSize:     10,
-		SortSafeList: []string{"id", "title", "-id", "-title", "created_at", "-created_at"},
-		Sort:         "created_at", // default sort
-	}
-
-	userId := currentUserId // default to current session
-	var title string
-
-	queryParams := c.QueryParams()
-	if queryParams.Has("userId") {
-		var err error
-		userId, err = strconv.Atoi(queryParams.Get("userId"))
-		if err != nil {
-			return r.badRequestError(err)
-		}
-	}
-	if queryParams.Has("title") {
-		title = queryParams.Get("title")
-	}
-	if queryParams.Has("page") {
-		page, err := strconv.Atoi(queryParams.Get("page"))
-		if err != nil {
-			return r.badRequestError(err)
-		}
-		filter.Page = page
-	}
-	if queryParams.Has("pageSize") {
-		pageSize, err := strconv.Atoi(queryParams.Get("pageSize"))
-		if err != nil {
-			return r.badRequestError(err)
-		}
-		filter.PageSize = pageSize
-	}
-	if queryParams.Has("sort") {
-		filter.Sort = queryParams.Get("sort")
-	}
-	books, metadata, err := r.Repository.Book.Find(userId, title, filter)
-	if err != nil {
-		return r.serverError(err)
-	}
-	return c.JSON(http.StatusOK,
-		Response[[]*repositories.Book]{
-			OK:       true,
-			Metadata: metadata,
-			Data:     books,
-		},
-	)
 }

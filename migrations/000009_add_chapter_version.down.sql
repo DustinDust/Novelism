@@ -1,1 +1,4 @@
-DROP TABLE IF EXISTS chapter_versions;
+ALTER TABLE IF EXISTS contents
+DROP COLUMN status;
+
+DROP TYPE IF EXISTS content_status;

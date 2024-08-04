@@ -1,11 +1,11 @@
+.PHONY: build
 ENV ?= "development"
 CONFIG_PATH ?= "./config"
 DB_CONN ?= "postgres://postgres:123123@localhost/novelism?sslmode=disable"
 
-run.local:
-	ENV=${ENV} CONFIG_PATH=${CONFIG_PATH} go run ./cmd/api/
-
 build:
+	go mod tidy
+	sqlc generate
 	go build -o ./bin/ ./cmd/api/
 
 build.docker:
